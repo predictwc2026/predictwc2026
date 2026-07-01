@@ -37,6 +37,7 @@
   </nav>
 
   <div class="container my-4">
+    
     <div id="page-home" class="page-view">
       <h2 class="mb-4 text-center text-dark fw-bold">Live Match Prediction Center</h2>
       <div class="d-flex justify-content-center gap-2 mb-4">
@@ -87,10 +88,149 @@
         </form>
       </div>
     </div>
-    
-    <!-- Other page views remain same as your original index.html -->
-    <!-- ... -->
+
+    <div id="page-leaderboard" class="page-view d-none">
+      <div class="text-center mb-2"><a href="#" class="text-decoration-none small text-secondary" onclick="showPage('home')">← All Games</a></div>
+      <h2 class="text-center fw-bold text-dark mb-1">🏆 Leaderboard</h2>
+      <p class="text-center text-muted mb-4">Overall winners across all concluded games</p>
+      <div class="row g-3 mb-4 text-center">
+        <div class="col-4"><div class="stat-card"><div id="lbl-total-players" class="stat-val">0</div><div class="text-muted small">Players</div></div></div>
+        <div class="col-4"><div class="stat-card"><div id="lbl-total-winners" class="stat-val" style="color: #4c51bf;">0</div><div class="text-muted small">Total Winners</div></div></div>
+        <div class="col-4"><div class="stat-card"><div id="lbl-concluded-games" class="stat-val" style="color: #4a5568;">0</div><div class="text-muted small">Concluded Games</div></div></div>
+      </div>
+      <div class="card p-0 overflow-hidden">
+        <div class="table-responsive">
+          <table class="table table-striped align-middle mb-0">
+            <thead class="leaderboard-header">
+              <tr><th style="width: 80px;">#</th><th>Name</th><th class="text-center">Wins</th><th class="text-end pe-4">Total Payout</th></tr>
+            </thead>
+            <tbody id="leaderboard-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="page-mypredictions" class="page-view d-none">
+      <button class="btn btn-secondary mb-3" onclick="showPage('home')">← Back to Fixtures</button>
+      <div class="card p-4 mx-auto" style="max-width: 750px;">
+        <h3 class="fw-bold mb-2">🔐 My Prediction Vault</h3>
+        <p class="text-muted mb-4">Enter your assignment code below to track your predictions securely.</p>
+        <div class="input-group mb-4">
+          <input type="text" id="my-vault-code-input" class="form-control" placeholder="Enter your official validation code">
+          <button class="btn btn-primary fw-bold" onclick="loadMyPrivateVault()">Unlock My Entries</button>
+        </div>
+        <div id="vault-results-area" class="d-none">
+          <h5 class="fw-bold mb-3 text-secondary">Logged Forecast Submissions:</h5>
+          <div class="table-responsive">
+            <table class="table table-bordered align-middle">
+              <thead class="table-light">
+                <tr><th>Fixture Details</th><th class="text-center">Your Forecast</th><th class="text-center">Status</th><th>Current Result</th></tr>
+              </thead>
+              <tbody id="vault-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="page-results" class="page-view d-none">
+      <button class="btn btn-secondary mb-3" onclick="showPage('home')">← Back to Fixtures</button>
+      <div class="card p-4">
+        <h3 id="res-title" class="fw-bold">Match Result Statistics</h3>
+        <div class="row my-4 text-center">
+          <div class="col-md-6 mb-2"><div class="p-3 bg-light border rounded"><h6>No Of Predictions</h6><h2 id="res-total" class="fw-bold text-primary">0</h2></div></div>
+          <div class="col-md-6 mb-2"><div class="p-3 bg-light border rounded"><h6>Solo Unique Predictions</h6><h2 id="res-solo" class="fw-bold text-warning">0</h2></div></div>
+        </div>
+        <div class="mb-4 p-3 bg-light rounded border">
+          <label class="form-label fw-bold text-secondary">Unlock Forecast Board Entries:</label>
+          <div class="input-group">
+            <input type="text" id="verify-code-input" class="form-control" placeholder="Enter your passcode">
+            <button class="btn btn-dark" onclick="reloadResultsWithCode()">Decrypt Scores</button>
+          </div>
+        </div>
+        <div id="summary-combinations-section" class="mb-4 p-3 border rounded d-none" style="background-color: #fafbfc;">
+          <h6 class="fw-bold text-secondary mb-2">Prediction Summary Breakdown</h6>
+          <div id="combination-pills-container"></div>
+        </div>
+        <h5 class="fw-bold mt-4">Full List</h5>
+        <div class="table-responsive"><table class="table table-striped align-middle"><thead><tr><th>Applicant Name</th><th>Prediction</th><th>Payout (NPR)</th></tr></thead><tbody id="results-table-body"></tbody></table></div>
+      </div>
+    </div>
+
+    <div id="page-admin" class="page-view d-none">
+      <button class="btn btn-secondary mb-3" onclick="showPage('home')">← Close Dashboard Panel</button>
+      
+      <div class="card p-4 mb-4 border-primary border">
+        <h4 class="text-primary fw-bold mb-3">🔑 Cryptographic Voucher Mint Terminal</h4>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Target Match Unit</label>
+            <select id="adm-gen-match-id" class="form-select" onchange="syncAdminPanelViews()"></select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-semibold">Quantity to Generate</label>
+            <input type="number" id="adm-gen-qty" class="form-control" min="1" max="100" value="10" onkeydown="if(['.',',','-','+','e','E'].includes(event.key))event.preventDefault();">
+          </div>
+          <div class="col-md-3 d-flex align-items-end">
+            <button class="btn btn-primary w-100 fw-bold" onclick="processDraftTokens()">Generate Codes</button>
+          </div>
+        </div>
+
+        <div id="adm-vouchers-preview-zone" class="mt-4 d-none">
+          <h6 class="fw-bold text-secondary">Generated Sandbox Preview Tokens:</h6>
+          <div id="adm-preview-pills" class="d-flex flex-wrap gap-2 my-2"></div>
+          <button class="btn btn-success fw-bold btn-sm" onclick="commitVouchersToCloud()">💾 Commit and Save to Table</button>
+        </div>
+
+        <div id="adm-active-ledger-zone" class="mt-4">
+          <h6 class="fw-bold text-dark">Active Authorized Keys Ledger (Match-wise Summary):</h6>
+          <div class="input-group mb-2" style="max-width: 550px;">
+            <select id="adm-view-voucher-match-id" class="form-select form-select-sm" onchange="loadActiveMatchVouchers()"></select>
+            <button class="btn btn-outline-secondary btn-sm fw-bold" onclick="loadActiveMatchVouchers()">🔄 Refresh Ledger</button>
+            <button class="btn btn-dark btn-sm fw-bold" id="btn-copy-all-unused" onclick="copyAllUnusedTokensToClipboard()">📋 Copy All Unused</button>
+          </div>
+          <div id="active-voucher-pool-render" class="d-flex flex-wrap gap-2 p-2 border rounded bg-white" style="min-height: 50px;"></div>
+        </div>
+      </div>
+
+      <div class="card p-4">
+        <h4 class="fw-bold text-danger mb-4">🛡️ Match Official Score Logging</h4>
+        <div class="table-responsive">
+          <table class="table align-middle border">
+            <thead class="table-dark"><tr><th>Match Details</th><th>Enter Scores</th><th>Actions</th></tr></thead>
+            <tbody id="admin-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
   </div>
+
+  <div class="modal fade" id="confirmationModal" data-bs-backdrop="static" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header bg-warning text-dark"><h5 class="modal-title fw-bold">⚠️ Reconfirm Your Prediction Score</h5></div>
+        <div class="modal-body">
+          <p>Please review your entered prediction score parameters carefully. Once committed, your assigned voucher code is permanently locked.</p>
+          <div class="p-3 bg-light rounded text-center border">
+            <h4 id="conf-match-title" class="fw-bold mb-2"></h4>
+            <div class="display-6 fw-bold text-primary"><span id="conf-score1">0</span> : <span id="conf-score2">0</span></div>
+          </div>
+          <div class="mt-3 text-muted small">
+            <div><b>Name:</b> <span id="conf-p-name"></span></div>
+            <div><b>Email:</b> <span id="conf-p-email"></span></div>
+            <div><b>Voucher:</b> <span id="conf-p-code"></span></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">Edit Score</button>
+          <button type="button" class="btn btn-success fw-bold" onclick="executeFinalValidatedSubmission()">Yes, Lock It In</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="text-center my-5 text-muted"><small><a href="#" class="text-decoration-none text-secondary" onclick="triggerAdminAuth()">🛠️ Open Admin Panel</a></small></footer>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
@@ -98,8 +238,198 @@
     const SUPABASE_ANON_KEY = "sb_publishable_zLJKzsCkRQc97Ce-Rm4xxA_Ono7OlFa";
     
     const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    
-    // ... (rest of your existing functions loadMatchCenter, renderDashboard, etc. remain unchanged)
+
+    let globalMatches = [];
+    let activeGameId = "";
+    let currentFilterTab = "Open"; 
+    let countdownIntervalId = null;
+    let bootstrapModalInstance = null;
+    let temporaryPayloadCache = null;
+    let pendingDraftVouchersArray = [];
+    let currentUnusedVouchersCache = [];
+
+    window.onload = function() { 
+      loadMatchCenter(); 
+      bootstrapModalInstance = new bootstrap.Modal(document.getElementById('confirmationModal'));
+    };
+
+    function showPage(pageId) {
+      document.querySelectorAll('.page-view').forEach(el => el.classList.add('d-none'));
+      document.getElementById('page-' + pageId).classList.remove('d-none');
+    }
+
+    function setMatchFilter(status) {
+      currentFilterTab = status;
+      document.getElementById('btn-filter-open').className = status === 'Open' ? 'btn btn-primary filter-btn' : 'btn btn-outline-secondary filter-btn';
+      document.getElementById('btn-filter-closed').className = status === 'Closed' ? 'btn btn-secondary filter-btn' : 'btn btn-outline-secondary filter-btn';
+      renderDashboard();
+    }
+
+    function getFlagUrl(countryName) {
+      const cleanName = countryName.trim().toLowerCase();
+      const flagMapping = {
+        "nepal": "np", "india": "in", "portugal": "pt", "brazil": "br", "argentina": "ar", 
+        "france": "fr", "spain": "es", "germany": "de", "england": "gb-eng", "croatia": "hr"
+      };
+      const code = flagMapping[cleanName] || cleanName.substring(0,2);
+      return `https://flagcdn.com/w40/${code}.png`;
+    }
+
+    async function loadMatchCenter() {
+      const { data: matches, error: mErr } = await _supabase.from('matches').select('*');
+      const { data: preds, error: pErr } = await _supabase.from('predictions').select('game_id');
+      
+      if (mErr) return;
+
+      let counts = {};
+      if (preds) preds.forEach(p => { counts[p.game_id] = (counts[p.game_id] || 0) + 1; });
+
+      globalMatches = (matches || []).map(m => {
+        const deadlineDate = new Date(m.deadline);
+        let formattedDeadline = m.deadline; 
+        try {
+          formattedDeadline = deadlineDate.toLocaleString('en-US', { timeZone: 'Asia/Kathmandu', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
+        } catch(e) {}
+        
+        return {
+          ...m,
+          status: (new Date() > deadlineDate) ? "Closed" : "Open",
+          formattedDeadline: formattedDeadline,
+          predictionsCount: counts[m.game_id] || 0,
+          flag1: getFlagUrl(m.team1),
+          flag2: getFlagUrl(m.team2)
+        };
+      });
+
+      renderDashboard();
+      populateAdminSelectors();
+    }
+
+    function renderDashboard() {
+      if (countdownIntervalId) clearInterval(countdownIntervalId);
+      const container = document.getElementById('matches-container');
+      container.innerHTML = "";
+      const filtered = globalMatches.filter(m => m.status === currentFilterTab);
+
+      if(filtered.length === 0) {
+        container.innerHTML = `<div class="col-12 text-center text-muted p-5"><h5>No matching ${currentFilterTab.toLowerCase()} fixtures cataloged.</h5></div>`;
+        return;
+      }
+
+      filtered.forEach(m => {
+        const countdownSpanHtml = m.status === 'Open' ? `<div class="text-danger small mb-1">⏳ Closing in: <span class="countdown-text" id="timer-${m.game_id}">--:--:--</span></div>` : '';
+        container.innerHTML += `
+          <div class="col-md-6 col-lg-4">
+            <div class="card p-3">
+              <div class="d-flex justify-content-between align-items-center mb-2"><span class="badge ${m.status==='Open'?'badge-open':'badge-closed'}">${m.status}</span><small class="text-muted fw-bold">Fee: NPR ${m.fee}</small></div>
+              <div class="d-flex align-items-center justify-content-between my-3 text-center">
+                <div style="width:40%;"><img src="${m.flag1}" onerror="this.src='https://placehold.co/45x30?text=⚽'" class="flag-img mb-1"><br><span class="fw-bold small d-block text-truncate">${m.team1}</span></div>
+                <div style="width:20%;"><span class="score-badge">${m.team1_score !== null ? m.team1_score : '-'} : ${m.team2_score !== null ? m.team2_score : '-'}</span></div>
+                <div style="width:40%;"><img src="${m.flag2}" onerror="this.src='https://placehold.co/45x30?text=⚽'" class="flag-img mb-1"><br><span class="fw-bold small d-block text-truncate">${m.team2}</span></div>
+              </div>
+              <div class="text-muted small mb-1">⏰ Deadline: <b>${m.formattedDeadline} (NPT)</b></div>
+              ${countdownSpanHtml}
+              <div class="text-muted small mb-3">📊 Submissions: <b>${m.predictionsCount}</b></div>
+              <div class="d-flex gap-2">
+                <button class="btn btn-primary btn-sm flex-fill fw-bold" ${m.status==='Closed'?'disabled':''} id="btn-apply-${m.game_id}" onclick="openPredictPage('${m.game_id}')">Apply Now</button>
+                <button class="btn btn-secondary btn-sm flex-fill fw-bold" onclick="openResultsPage('${m.game_id}')">Results</button>
+              </div>
+            </div>
+          </div>`;
+      });
+
+      if (currentFilterTab === 'Open') startLiveCountdownTicker(filtered);
+    }
+
+    function startLiveCountdownTicker(openMatches) {
+      function updateAllTimers() {
+        const now = new Date().getTime();
+        openMatches.forEach(m => {
+          const targetElement = document.getElementById(`timer-${m.game_id}`);
+          if (!targetElement) return;
+          const distance = new Date(m.deadline).getTime() - now;
+          if (distance < 0) {
+            targetElement.innerHTML = "EXPIRED";
+            if(document.getElementById(`btn-apply-${m.game_id}`)) document.getElementById(`btn-apply-${m.game_id}`).disabled = true;
+          } else {
+            const h = Math.floor(distance / 3600000).toString().padStart(2, '0');
+            const mnt = Math.floor((distance % 3600000) / 60000).toString().padStart(2, '0');
+            const s = Math.floor((distance % 60000) / 1000).toString().padStart(2, '0');
+            targetElement.innerHTML = `${h}h ${mnt}m ${s}s`;
+          }
+        });
+      }
+      updateAllTimers();
+      countdownIntervalId = setInterval(updateAllTimers, 1000);
+    }
+
+    function populateAdminSelectors() {
+      const selectGen = document.getElementById('adm-gen-match-id');
+      const selectView = document.getElementById('adm-view-voucher-match-id');
+      if(!selectGen) return;
+      selectGen.innerHTML = ""; selectView.innerHTML = "";
+      globalMatches.forEach(m => {
+        const optText = `${m.team1} vs ${m.team2} [${m.game_id}]`;
+        selectGen.innerHTML += `<option value="${m.game_id}">${optText}</option>`;
+        selectView.innerHTML += `<option value="${m.game_id}">${optText}</option>`;
+      });
+    }
+
+    function syncAdminPanelViews() {
+      const sourceVal = document.getElementById('adm-gen-match-id').value;
+      document.getElementById('adm-view-voucher-match-id').value = sourceVal;
+      loadActiveMatchVouchers();
+    }
+
+    function openPredictPage(gId) {
+      const m = globalMatches.find(x => x.game_id === gId);
+      activeGameId = gId;
+      document.getElementById('pred-gameId').value = gId;
+      document.getElementById('pred-fee').value = m.fee;
+      document.getElementById('predict-title').innerText = `${m.team1} vs ${m.team2}`;
+      document.getElementById('lbl-team1').innerText = m.team1 + " Score";
+      document.getElementById('lbl-team2').innerText = m.team2 + " Score";
+      showPage('predict');
+    }
+
+    function triggerSubmissionConfirmation(e) {
+      e.preventDefault();
+      
+      const rawScore1 = document.getElementById('pred-t1-score').value;
+      const rawScore2 = document.getElementById('pred-t2-score').value;
+      if (rawScore1.includes('.') || rawScore2.includes('.')) {
+        alert("❌ Error: Decimal values are blocked. Enter integers only.");
+        return;
+      }
+
+      const email = document.getElementById('pred-email').value.trim();
+      if(!email.toLowerCase().endsWith('@gmail.com')) {
+        document.getElementById('email-error').classList.remove('d-none');
+        return;
+      }
+      document.getElementById('email-error').classList.add('d-none');
+
+      const match = globalMatches.find(x => x.game_id === document.getElementById('pred-gameId').value);
+      
+      temporaryPayloadCache = {
+        game_id: match.game_id,
+        fee: parseFloat(document.getElementById('pred-fee').value),
+        full_name: document.getElementById('pred-name').value.trim(),
+        email: email,
+        code: document.getElementById('pred-code').value.trim(),
+        team1_score: parseInt(rawScore1),
+        team2_score: parseInt(rawScore2)
+      };
+
+      document.getElementById('conf-match-title').innerText = `${match.team1} vs ${match.team2}`;
+      document.getElementById('conf-score1').innerText = temporaryPayloadCache.team1_score;
+      document.getElementById('conf-score2').innerText = temporaryPayloadCache.team2_score;
+      document.getElementById('conf-p-name').innerText = temporaryPayloadCache.full_name;
+      document.getElementById('conf-p-email').innerText = temporaryPayloadCache.email;
+      document.getElementById('conf-p-code').innerText = temporaryPayloadCache.code;
+
+      bootstrapModalInstance.show();
+    }
 
     async function executeFinalValidatedSubmission() {
       bootstrapModalInstance.hide();
@@ -112,8 +442,20 @@
           .eq('game_id', temporaryPayloadCache.game_id)
           .eq('voucher_code', temporaryPayloadCache.code);
 
-        if (vErr || !voucherCheck || voucherCheck.length === 0 || voucherCheck[0].is_used) {
-          alert("❌ Access Denied or Invalid Voucher.");
+        if (vErr) {
+          alert("Database error while checking voucher: " + vErr.message);
+          return;
+        }
+
+        if (!voucherCheck || voucherCheck.length === 0) {
+          alert(`❌ Access Denied: "${temporaryPayloadCache.code}" is not a valid official voucher code for this match.`);
+          return;
+        }
+
+        const voucher = voucherCheck[0];
+
+        if (voucher.is_used) {
+          alert("❌ Submission Failure: This official voucher code has already been consumed!");
           return;
         }
 
@@ -127,28 +469,27 @@
           team2_score: Number(temporaryPayloadCache.team2_score)
         };
 
-        const { error: insertError } = await _supabase.from('predictions').insert([dataPayload]);
+        const { error: insertError } = await _supabase
+          .from('predictions')
+          .insert([dataPayload]);
+
         if (insertError) {
-          alert("SQL Write Failure: " + insertError.message);
+          if (insertError.code === "23505") {
+            alert("❌ Submission Failure: A prediction with this exact code setup already exists.");
+          } else {
+            alert("SQL Write Failure: " + insertError.message);
+          }
           return;
         }
 
-        // TRIGGER EMAIL VIA EDGE FUNCTION
-        await fetch('https://glrczpyhppinotlssmrk.supabase.co/functions/v1/send-email', {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer sb_publishable_zLJKzsCkRQc97Ce-Rm4xxA_Ono7OlFa' 
-          },
-          body: JSON.stringify({
-            email: dataPayload.email,
-            full_name: dataPayload.full_name,
-            team1_score: dataPayload.team1_score,
-            team2_score: dataPayload.team2_score
-          }),
-        });
+        const { error: updateErr } = await _supabase
+          .from('match_vouchers')
+          .update({ is_used: true })
+          .eq('id', voucher.id);
 
-        await _supabase.from('match_vouchers').update({ is_used: true }).eq('id', voucherCheck[0].id);
+        if (updateErr) {
+          console.error("Voucher status update failed:", updateErr.message);
+        }
 
         alert("🎉 Certified! Your prediction has been securely locked.");
         document.getElementById('prediction-form').reset();
@@ -159,6 +500,411 @@
       } catch (err) {
         alert("Unexpected system error: " + err.message);
       }
+    }
+
+    function generateHighEntropyToken() {
+      const uppers = "ABCDEFGHJKLMNPQRSTUVWXYZ"; 
+      const lowers = "abcdefghijkmnopqrstuvwxyz"; 
+      const digits = "23456789";
+      const specials = "@#$%&*!";
+      const collectiveAll = uppers + lowers + digits + specials;
+
+      let pass = [
+        uppers[Math.floor(Math.random() * uppers.length)],
+        lowers[Math.floor(Math.random() * lowers.length)],
+        digits[Math.floor(Math.random() * digits.length)],
+        specials[Math.floor(Math.random() * specials.length)]
+      ];
+
+      for (let i = 0; i < 4; i++) {
+        pass.push(collectiveAll[Math.floor(Math.random() * collectiveAll.length)]);
+      }
+
+      return pass.sort(() => 0.5 - Math.random()).join('');
+    }
+
+    async function processDraftTokens() {
+      const targetMatch = document.getElementById('adm-gen-match-id').value;
+      const amountToGenerate = parseInt(document.getElementById('adm-gen-qty').value);
+      
+      if(isNaN(amountToGenerate) || amountToGenerate < 1) return;
+
+      pendingDraftVouchersArray = [];
+      const previewZone = document.getElementById('adm-vouchers-preview-zone');
+      const pillsContainer = document.getElementById('adm-preview-pills');
+      
+      pillsContainer.innerHTML = "";
+
+      for(let i=0; i < amountToGenerate; i++) {
+        const freshToken = generateHighEntropyToken();
+        pendingDraftVouchersArray.push({
+          game_id: targetMatch,
+          voucher_code: freshToken,
+          is_used: false
+        });
+        pillsContainer.innerHTML += `<span class="badge bg-dark p-2 font-monospace">${freshToken}</span>`;
+      }
+
+      previewZone.classList.remove('d-none');
+      document.getElementById('adm-view-voucher-match-id').value = targetMatch;
+    }
+
+    async function commitVouchersToCloud() {
+      if(pendingDraftVouchersArray.length === 0) return;
+      
+      const proceed = confirm(`Are you sure you want to permanently authorize these ${pendingDraftVouchersArray.length} secure tokens for this game?`);
+      if(!proceed) return;
+
+      const { data, error } = await _supabase
+        .from('match_vouchers')
+        .insert(pendingDraftVouchersArray);
+
+      if(error) {
+        alert("SQL Constraints Intercept: Duplicate codes found across ledger.");
+      } else {
+        alert("✅ Security tokens saved to database successfully!");
+        document.getElementById('adm-vouchers-preview-zone').classList.add('d-none');
+        pendingDraftVouchersArray = [];
+        loadActiveMatchVouchers();
+      }
+    }
+
+    async function loadActiveMatchVouchers() {
+      const mId = document.getElementById('adm-view-voucher-match-id').value;
+      const renderArea = document.getElementById('active-voucher-pool-render');
+      const copyAllBtn = document.getElementById('btn-copy-all-unused');
+      
+      renderArea.innerHTML = "<small class='text-muted'>Querying verification logs...</small>";
+      currentUnusedVouchersCache = []; 
+      if(copyAllBtn) copyAllBtn.disabled = true;
+
+      const { data, error } = await _supabase
+        .from('match_vouchers')
+        .select('voucher_code, is_used')
+        .eq('game_id', mId);
+
+      if (error) {
+        renderArea.innerHTML = `<span class='text-danger small p-2'>Error loading tokens: ${error.message}</span>`;
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        renderArea.innerHTML = "<span class='text-muted small p-2'>No keys minted for this match yet.</span>";
+        return;
+      }
+
+      renderArea.innerHTML = "";
+      
+      data.forEach(v => {
+        if (!v.is_used) {
+          currentUnusedVouchersCache.push(v.voucher_code);
+        }
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = v.is_used 
+          ? 'btn btn-sm btn-danger text-white opacity-50 me-2 mb-2 font-monospace' 
+          : 'btn btn-sm btn-light text-dark border-success border me-2 mb-2 font-monospace';
+        
+        btn.textContent = v.voucher_code;
+        btn.title = v.is_used ? 'Consumed' : 'Active - Click to copy';
+        
+        if (v.is_used) {
+          btn.disabled = true;
+        } else {
+          btn.onclick = function() {
+            copyTokenToClipboard(v.voucher_code, btn);
+          };
+        }
+        
+        renderArea.appendChild(btn);
+      });
+
+      if (currentUnusedVouchersCache.length > 0 && copyAllBtn) {
+        copyAllBtn.disabled = false;
+      }
+    }
+
+    function copyAllUnusedTokensToClipboard() {
+      if (currentUnusedVouchersCache.length === 0) {
+        alert("No active unused voucher codes found for this fixture.");
+        return;
+      }
+
+      const payloadText = currentUnusedVouchersCache.join("\n");
+      const masterBtn = document.getElementById('btn-copy-all-unused');
+
+      if (!navigator.clipboard || !navigator.clipboard.writeText) {
+        const fallbackShim = document.createElement("textarea");
+        fallbackShim.value = payloadText;
+        document.body.appendChild(fallbackShim);
+        fallbackShim.select();
+        try {
+          document.execCommand('copy');
+          applyCopyAllFeedback(masterBtn);
+        } catch (err) {
+          alert("Failed to fallback copy setup.");
+        }
+        document.body.removeChild(fallbackShim);
+        return;
+      }
+
+      navigator.clipboard.writeText(payloadText).then(() => {
+        applyCopyAllFeedback(masterBtn);
+      }).catch(err => {
+        console.error("Extraction matrix failure:", err);
+      });
+    }
+
+    function applyCopyAllFeedback(element) {
+      if(!element) return;
+      const originalLabel = element.textContent;
+      element.textContent = `Copied ${currentUnusedVouchersCache.length} Keys! ✓`;
+      element.className = "btn btn-success btn-sm fw-bold";
+      
+      setTimeout(() => {
+        element.textContent = originalLabel;
+        element.className = "btn btn-dark btn-sm fw-bold";
+      }, 1800);
+    }
+
+    function copyTokenToClipboard(text, element) {
+      if (!navigator.clipboard || !navigator.clipboard.writeText) {
+        const inputShim = document.createElement("input");
+        inputShim.value = text;
+        document.body.appendChild(inputShim);
+        inputShim.select();
+        try {
+          document.execCommand('copy');
+          applyCopyButtonFeedback(element);
+        } catch (err) {
+          alert(`Code parameter: ${text}`);
+        }
+        document.body.removeChild(inputShim);
+        return;
+      }
+
+      navigator.clipboard.writeText(text).then(() => {
+        applyCopyButtonFeedback(element);
+      }).catch(err => {
+        alert(`Code parameters: ${text}`);
+      });
+    }
+
+    function applyCopyButtonFeedback(element) {
+      const originalText = element.textContent;
+      element.textContent = "Copied! ✓";
+      element.className = "btn btn-sm btn-success text-white me-2 mb-2 font-monospace";
+      
+      setTimeout(() => {
+        element.textContent = originalText;
+        element.className = "btn btn-sm btn-light text-dark border-success border me-2 mb-2 font-monospace";
+      }, 1200);
+    }
+
+    function openResultsPage(gId) {
+      activeGameId = gId;
+      document.getElementById('verify-code-input').value = "";
+      renderResultsView(gId, "");
+    }
+
+    function reloadResultsWithCode() {
+      renderResultsView(activeGameId, document.getElementById('verify-code-input').value);
+    }
+
+    async function renderResultsView(gId, filterCode) {
+      const match = globalMatches.find(x => x.game_id === gId);
+      if(new Date() < new Date(match.deadline)) {
+        alert("System Lockout: Scoreboard analytics remain classified until match deadline.");
+        return;
+      }
+
+      const tbody = document.getElementById('results-table-body');
+      const pillsContainer = document.getElementById('combination-pills-container');
+      const summarySection = document.getElementById('summary-combinations-section');
+      
+      tbody.innerHTML = ""; pillsContainer.innerHTML = ""; summarySection.classList.add('d-none');
+
+      if (!filterCode || filterCode.trim() === "") {
+        tbody.innerHTML = `<tr><td colspan="3" class="text-center text-muted">🔒 Please enter your assignment code above to unlock the log.</td></tr>`;
+        document.getElementById('res-total').innerText = "0";
+        document.getElementById('res-solo').innerText = "Locked";
+        document.getElementById('res-title').innerText = `Results Log: ${match.team1} vs ${match.team2}`;
+        showPage('results');
+        return;
+      }
+
+      const { data: verificationCheck } = await _supabase.from('predictions').select('id').eq('game_id', gId).eq('code', filterCode).limit(1);
+
+      if (!verificationCheck || verificationCheck.length === 0) {
+        alert("Invalid Secret Code: Match entries locked.");
+        tbody.innerHTML = `<tr><td colspan="3" class="text-center text-danger">⚠️ Access Denied. Invalid entry code parameters.</td></tr>`;
+        return;
+      }
+
+      const { data: allPreds } = await _supabase.from('predictions').select('*').eq('game_id', gId);
+      if (!allPreds) return;
+
+      let scoreComboMap = {};
+      allPreds.forEach(p => {
+        let key = `${p.team1_score}-${p.team2_score}`;
+        scoreComboMap[key] = (scoreComboMap[key] || 0) + 1;
+      });
+
+      summarySection.classList.remove('d-none');
+      Object.keys(scoreComboMap).forEach(key => {
+        pillsContainer.innerHTML += `<span class="combo-pill">${key}: ${scoreComboMap[key]} entries</span>`;
+      });
+
+      let finalScoreKey = (match.team1_score !== null && match.team2_score !== null) ? `${match.team1_score}-${match.team2_score}` : null;
+      let matchingPredictionsCount = finalScoreKey ? (scoreComboMap[finalScoreKey] || 0) : 0;
+      let calculatedPayout = (finalScoreKey && matchingPredictionsCount > 0) ? ((allPreds.length * match.fee) / matchingPredictionsCount) : 0;
+
+      let soloCount = 0;
+      let processedPreds = allPreds.map(p => {
+        let comboKey = `${p.team1_score}-${p.team2_score}`;
+        if(scoreComboMap[comboKey] === 1) soloCount++;
+        let isWinner = finalScoreKey && comboKey === finalScoreKey;
+        return { ...p, displayName: isWinner ? `🏆 ${p.full_name}` : p.full_name, payoutValue: isWinner ? calculatedPayout : 0, isWinner: isWinner };
+      });
+
+      processedPreds.sort((a, b) => b.isWinner - a.isWinner).forEach(p => {
+        tbody.innerHTML += `<tr class="${p.isWinner ? 'winner-row' : ''}"><td class="fw-semibold">${p.displayName}</td><td><span class="badge bg-success">${p.team1_score} - ${p.team2_score}</span></td><td class="fw-bold">NPR ${Math.round(p.payoutValue)}</td></tr>`;
+      });
+
+      document.getElementById('res-title').innerText = `Results Log: ${match.team1} vs ${match.team2}`;
+      document.getElementById('res-total').innerText = allPreds.length;
+      document.getElementById('res-solo').innerText = soloCount;
+      showPage('results');
+    }
+
+    async function promptLeaderboardAuth() {
+      const passCode = prompt("Enter your prediction validation token to view the standings:");
+      if (!passCode) return;
+      const { data, error } = await _supabase.from('predictions').select('full_name').eq('code', passCode).limit(1);
+      if (error || !data || data.length === 0) {
+        alert("Authentication Failed.");
+        return;
+      }
+      buildGlobalLeaderboard();
+    }
+
+    async function buildGlobalLeaderboard() {
+      const { data: allPredictions } = await _supabase.from('predictions').select('*');
+      const { data: allMatches } = await _supabase.from('matches').select('*');
+
+      let matchMap = {}; let concludedGamesCount = 0;
+      allMatches.forEach(m => {
+        matchMap[m.game_id] = m;
+        if (m.team1_score !== null && m.team2_score !== null) concludedGamesCount++;
+      });
+
+      let gameDistribution = {};
+      allPredictions.forEach(p => {
+        if (!gameDistribution[p.game_id]) gameDistribution[p.game_id] = [];
+        gameDistribution[p.game_id].push(p);
+      });
+
+      let gamePayoutMap = {};
+      Object.keys(gameDistribution).forEach(gId => {
+        const match = matchMap[gId];
+        if (!match || match.team1_score === null || match.team2_score === null) return;
+        const targetKey = `${match.team1_score}-${match.team2_score}`;
+        let winningCount = gameDistribution[gId].filter(p => `${p.team1_score}-${p.team2_score}` === targetKey).length;
+        if (winningCount > 0) gamePayoutMap[gId] = { targetKey: targetKey, payoutPerWinner: (gameDistribution[gId].length * match.fee) / winningCount };
+      });
+
+      let playerLeaderboard = {}; let uniquePlayersSet = new Set(); let winningPlayersSet = new Set();
+
+      allPredictions.forEach(p => {
+        uniquePlayersSet.add(p.email.toLowerCase());
+        if (!playerLeaderboard[p.full_name]) playerLeaderboard[p.full_name] = { name: p.full_name, wins: 0, totalPayout: 0 };
+        const payoutInfo = gamePayoutMap[p.game_id];
+        if (payoutInfo && `${p.team1_score}-${p.team2_score}` === payoutInfo.targetKey) {
+          playerLeaderboard[p.full_name].wins += 1;
+          playerLeaderboard[p.full_name].totalPayout += payoutInfo.payoutPerWinner;
+          winningPlayersSet.add(p.full_name);
+        }
+      });
+
+      let leaderboardArray = Object.values(playerLeaderboard).sort((a, b) => b.totalPayout - a.totalPayout);
+      document.getElementById('lbl-total-players').innerText = uniquePlayersSet.size;
+      document.getElementById('lbl-total-winners').innerText = winningPlayersSet.size;
+      document.getElementById('lbl-concluded-games').innerText = concludedGamesCount;
+
+      const tbody = document.getElementById('leaderboard-table-body'); tbody.innerHTML = "";
+      leaderboardArray.forEach((player, index) => {
+        let rank = index + 1;
+        if (index === 0) rank = "🥇"; if (index === 1) rank = "🥈"; if (index === 2) rank = "🥉";
+        tbody.innerHTML += `<tr><td class="fw-bold ps-4">${rank}</td><td class="fw-semibold">${player.name}</td><td><span class="badge bg-light text-success border border-success px-3">${player.wins} wins</span></td><td class="text-end fw-bold text-primary pe-4">NPR ${Math.round(player.totalPayout).toLocaleString()}</td></tr>`;
+      });
+
+      showPage('leaderboard');
+    }
+
+    function openMyPredictionsPage() {
+      document.getElementById('my-vault-code-input').value = "";
+      document.getElementById('vault-results-area').classList.add('d-none');
+      showPage('mypredictions');
+    }
+
+    async function loadMyPrivateVault() {
+      const codeInput = document.getElementById('my-vault-code-input').value.trim();
+      const { data: userPredictions } = await _supabase.from('predictions').select('*').eq('code', codeInput);
+
+      if (!userPredictions || userPredictions.length === 0) {
+        alert("No entries found."); return;
+      }
+
+      const { data: matches } = await _supabase.from('matches').select('*');
+      let mKeyMap = {}; if (matches) matches.forEach(m => mKeyMap[m.game_id] = m);
+
+      const tbody = document.getElementById('vault-table-body'); tbody.innerHTML = "";
+      userPredictions.forEach(p => {
+        const match = mKeyMap[p.game_id]; if (!match) return;
+        const deadlinePassed = new Date() > new Date(match.deadline);
+        tbody.innerHTML += `<tr><td><b>${match.team1} vs ${match.team2}</b></td><td class="text-center font-monospace">${p.team1_score} - ${p.team2_score}</td><td class="text-center">${deadlinePassed?'Closed':'Open'}</td><td class="fw-bold">${(match.team1_score!==null)?match.team1_score+'-'+match.team2_score:'Pending...'}</td></tr>`;
+      });
+      document.getElementById('vault-results-area').classList.remove('d-none');
+    }
+
+    async function triggerAdminAuth() {
+      const enteredPin = prompt("Enter administrative authentication credential passcode:");
+      if (!enteredPin) return;
+      const { data: isAuthorized } = await _supabase.rpc('verify_admin_pin', { entered_pin: enteredPin });
+      if (isAuthorized === true) {
+        renderAdminDashboard();
+        loadActiveMatchVouchers();
+        showPage('admin');
+      } else {
+        alert("Invalid access parameters.");
+      }
+    }
+
+    function renderAdminDashboard() {
+      const tbody = document.getElementById('admin-table-body'); tbody.innerHTML = "";
+      globalMatches.forEach(m => {
+        tbody.innerHTML += `
+          <tr>
+            <td><div class="fw-bold small">${m.team1} vs ${m.team2}</div></td>
+            <td>
+              <div class="d-flex gap-1 align-items-center">
+                <input type="number" id="adm-t1-${m.game_id}" class="form-control form-control-sm text-center" style="width:60px;" value="${m.team1_score !== null ? m.team1_score : ''}" onkeydown="if(['.',',','-','+','e','E'].includes(event.key))event.preventDefault();">
+                <input type="number" id="adm-t2-${m.game_id}" class="form-control form-control-sm text-center" style="width:60px;" value="${m.team2_score !== null ? m.team2_score : ''}" onkeydown="if(['.',',','-','+','e','E'].includes(event.key))event.preventDefault();">
+              </div>
+            </td>
+            <td><button class="btn btn-danger btn-sm fw-bold" onclick="commitScoreFromFrontend('${m.game_id}')">Update</button></td>
+          </tr>`;
+      });
+    }
+
+    async function commitScoreFromFrontend(gId) {
+      const s1 = parseInt(document.getElementById(`adm-t1-${gId}`).value);
+      const s2 = parseInt(document.getElementById(`adm-t2-${gId}`).value);
+      await _supabase.from('matches').update({ team1_score: s1, team2_score: s2 }).eq('game_id', gId);
+      alert("Scores submitted successfully!");
+      await loadMatchCenter();
+      renderAdminDashboard();
     }
   </script>
 </body>
