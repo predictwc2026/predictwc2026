@@ -21,7 +21,6 @@
     .stat-val { font-size: 2rem; font-weight: bold; color: #0d6efd; }
     .leaderboard-header { background-color: #2b6cb0 !important; color: white !important; }
     .countdown-text { color: #dc3545; font-weight: 700; letter-spacing: 0.5px; }
-    .voucher-box { background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 6px; padding: 8px 12px; font-family: monospace; font-size: 1.05rem; }
   </style>
 </head>
 <body>
@@ -72,8 +71,8 @@
             <div class="form-text text-danger d-none" id="email-error">Only standard Google accounts (@gmail.com) are accepted.</div>
           </div>
           <div class="mb-3">
-            <label class="form-label fw-semibold">Enter Code</label>
-            <input type="text" class="form-control" id="pred-code" placeholder="Enter code provided" required>
+            <label class="form-label fw-semibold">Official Pass Code</label>
+            <input type="text" class="form-control" id="pred-code" placeholder="Enter the unique, case-sensitive code provided by the administrator" required>
           </div>
           <div class="row mb-4">
             <div class="col-6">
@@ -385,7 +384,6 @@
       showPage('predict');
     }
 
-    // INTERFACE CAPTURE & STAGING (Modal triggers here)
     function triggerSubmissionConfirmation(e) {
       e.preventDefault();
       const email = document.getElementById('pred-email').value.trim();
@@ -397,7 +395,6 @@
 
       const match = globalMatches.find(x => x.game_id === document.getElementById('pred-gameId').value);
       
-      // Stage payload array parameters internally
       temporaryPayloadCache = {
         game_id: match.game_id,
         fee: parseFloat(document.getElementById('pred-fee').value),
@@ -408,7 +405,6 @@
         team2_score: parseInt(document.getElementById('pred-t2-score').value)
       };
 
-      // Populate elements inside the re-confirmation overlay UI matrix
       document.getElementById('conf-match-title').innerText = `${match.team1} vs ${match.team2}`;
       document.getElementById('conf-score1').innerText = temporaryPayloadCache.team1_score;
       document.getElementById('conf-score2').innerText = temporaryPayloadCache.team2_score;
@@ -419,59 +415,74 @@
       bootstrapModalInstance.show();
     }
 
-    // FINAL TRANSACTION WRITER WITH AUTHORIZATION KEY VAULT INTERLOCK
     async function executeFinalValidatedSubmission() {
       bootstrapModalInstance.hide();
       if(!temporaryPayloadCache) return;
 
-      // 1. Core Rule Check: Verify if voucher is assigned to this match unit and unused
-      const { data: voucherCheck, error: vErr } = await _supabase
-        .from('match_vouchers')
-        .select('*')
-        .eq('game_id', temporaryPayloadCache.game_id)
-        .eq('voucher_code', temporaryPayloadCache.code)
-        .eq('is_used', false)
-        .substring(0,1);
+      try {
+        const { data: voucherCheck, error: vErr } = await _supabase
+          .from('match_vouchers')
+          .select('*')
+          .eq('game_id', temporaryPayloadCache.game_id)
+          .eq('voucher_code', temporaryPayloadCache.code);
 
-      if (vErr || !voucherCheck || voucherCheck.length === 0) {
-        alert("❌ Denied: Invalid or already consumed security code! You can only lock predictions using an unused official code assigned for this specific game.");
-        return;
-      }
-
-      // 2. Insert prediction entry
-      const { error: insertError } = await _supabase.from('predictions').insert([temporaryPayloadCache]);
-
-      if (insertError) {
-        if (insertError.code === "23505") {
-          alert("❌ Submission Failure: This secret entry token variant has already been claimed.");
-        } else {
-          alert("Writing Failure: " + insertError.message);
+        if (vErr) {
+          alert("Database error while checking voucher: " + vErr.message);
+          return;
         }
-        return;
+
+        if (!voucherCheck || voucherCheck.length === 0) {
+          alert(`❌ Access Denied: "${temporaryPayloadCache.code}" is not a valid official voucher code for this match. You cannot use custom codes.`);
+          return;
+        }
+
+        const voucher = voucherCheck[0];
+
+        if (voucher.is_used) {
+          alert("❌ Submission Failure: This official voucher code has already been consumed by another player!");
+          return;
+        }
+
+        const { error: insertError } = await _supabase
+          .from('predictions')
+          .insert([temporaryPayloadCache]);
+
+        if (insertError) {
+          if (insertError.code === "23505") {
+            alert("❌ Submission Failure: A prediction with this code setup already exists.");
+          } else {
+            alert("SQL Write Failure: " + insertError.message);
+          }
+          return;
+        }
+
+        const { error: updateErr } = await _supabase
+          .from('match_vouchers')
+          .update({ is_used: true })
+          .eq('id', voucher.id);
+
+        if (updateErr) {
+          console.error("Voucher status update failed:", updateErr.message);
+        }
+
+        alert("🎉 Certified! Your prediction has been securely locked.");
+        document.getElementById('prediction-form').reset();
+        temporaryPayloadCache = null;
+        await loadMatchCenter();
+        showPage('home');
+
+      } catch (err) {
+        alert("Unexpected system error: " + err.message);
       }
-
-      // 3. Consume token instantly across the platform
-      await _supabase
-        .from('match_vouchers')
-        .update({ is_used: true })
-        .eq('id', voucherCheck[0].id);
-
-      alert("🎉 Certified! Your prediction has been securely locked.");
-      document.getElementById('prediction-form').reset();
-      temporaryPayloadCache = null;
-      await loadMatchCenter();
-      showPage('home');
     }
 
-    // HIGH ENTROPY ALGORITHM (Ensures top-tier token randomization rules)
     function generateHighEntropyToken() {
-      const uppers = "ABCDEFGHJKLMNPQRSTUVWXYZ"; // Removed confusing O/I variants
+      const uppers = "ABCDEFGHJKLMNPQRSTUVWXYZ"; 
       const lowers = "abcdefghijkmnopqrstuvwxyz"; 
       const digits = "23456789";
       const specials = "@#$%&*!";
       const collectiveAll = uppers + lowers + digits + specials;
 
-      // Guarantee structural distribution guidelines across indices
       let pass = [
         uppers[Math.floor(Math.random() * uppers.length)],
         lowers[Math.floor(Math.random() * lowers.length)],
@@ -479,16 +490,13 @@
         specials[Math.floor(Math.random() * specials.length)]
       ];
 
-      // Pad remaining spaces up to length 8 criteria
       for (let i = 0; i < 4; i++) {
         pass.push(collectiveAll[Math.floor(Math.random() * collectiveAll.length)]);
       }
 
-      // Shuffle using modern sorting arrays
       return pass.sort(() => 0.5 - Math.random()).join('');
     }
 
-    // ADMINISTRATIVE PRE-MINT STAGING LOGIC
     async function processDraftTokens() {
       const targetMatch = document.getElementById('adm-gen-match-id').value;
       const amountToGenerate = parseInt(document.getElementById('adm-gen-qty').value);
@@ -508,13 +516,12 @@
           voucher_code: freshToken,
           is_used: false
         });
-        pillsContainer.innerHTML += `<span class="badge bg-dark p-2 monospace font-monospace">${freshToken}</span>`;
+        pillsContainer.innerHTML += `<span class="badge bg-dark p-2 font-monospace">${freshToken}</span>`;
       }
 
       previewZone.classList.remove('d-none');
     }
 
-    // COMMIT VOUCHERS SYSTEM LAYER
     async function commitVouchersToCloud() {
       if(pendingDraftVouchersArray.length === 0) return;
       
@@ -535,7 +542,6 @@
       }
     }
 
-    // RETRIEVE ACTIVE MATCH SECURE VOUCHERS
     async function loadActiveMatchVouchers() {
       const mId = document.getElementById('adm-view-voucher-match-id').value;
       const renderArea = document.getElementById('active-voucher-pool-render');
@@ -546,22 +552,53 @@
         .select('voucher_code, is_used')
         .eq('game_id', mId);
 
-      if(error || !data || data.length === 0) {
+      if (error) {
+        renderArea.innerHTML = `<span class='text-danger small p-2'>Error loading tokens: ${error.message}</span>`;
+        return;
+      }
+
+      if (!data || data.length === 0) {
         renderArea.innerHTML = "<span class='text-muted small p-2'>No keys minted for this match yet.</span>";
         return;
       }
 
       renderArea.innerHTML = "";
+      
       data.forEach(v => {
-        const bgClass = v.is_used ? 'bg-danger text-white opacity-50' : 'bg-light text-dark border-success border';
-        const titleText = v.is_used ? 'Consumed' : 'Active - Tap to copy';
-        renderArea.innerHTML += `<button class="btn btn-sm ${bgClass} font-monospace" title="${titleText}" onclick="copyTokenToClipboard('${v.voucher_code}')" ${v.is_used ? 'disabled':''}>${v.voucher_code}</button>`;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = v.is_used 
+          ? 'btn btn-sm btn-danger text-white opacity-50 me-2 mb-2 font-monospace' 
+          : 'btn btn-sm btn-light text-dark border-success border me-2 mb-2 font-monospace';
+        
+        btn.textContent = v.voucher_code;
+        btn.title = v.is_used ? 'Consumed' : 'Active - Click to copy';
+        
+        if (v.is_used) {
+          btn.disabled = true;
+        } else {
+          btn.onclick = function() {
+            copyTokenToClipboard(v.voucher_code, btn);
+          };
+        }
+        
+        renderArea.appendChild(btn);
       });
     }
 
-    function copyTokenToClipboard(text) {
-      navigator.clipboard.writeText(text);
-      alert(`Copied: ${text}`);
+    function copyTokenToClipboard(text, element) {
+      navigator.clipboard.writeText(text).then(() => {
+        const originalText = element.textContent;
+        element.textContent = "Copied! ✓";
+        element.className = "btn btn-sm btn-success text-white me-2 mb-2 font-monospace";
+        
+        setTimeout(() => {
+          element.textContent = originalText;
+          element.className = "btn btn-sm btn-light text-dark border-success border me-2 mb-2 font-monospace";
+        }, 1200);
+      }).catch(err => {
+        alert(`Code: ${text}`);
+      });
     }
 
     function openResultsPage(gId) {
