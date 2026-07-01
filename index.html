@@ -384,36 +384,44 @@
       showPage('predict');
     }
 
-    async function handlePredictSubmit(e) {
-      e.preventDefault();
-      const email = document.getElementById('pred-email').value;
-      if(!email.toLowerCase().endsWith('@gmail.com')) {
-        document.getElementById('email-error').classList.remove('d-none');
-        return;
-      }
-      document.getElementById('email-error').classList.add('d-none');
+async function handlePredictSubmit(e) {
+  e.preventDefault();
+  
+  // 1. Validate Gmail Domain
+  const email = document.getElementById('pred-email').value;
+  if(!email.toLowerCase().endsWith('@gmail.com')) {
+    document.getElementById('email-error').classList.remove('d-none');
+    return;
+  }
+  document.getElementById('email-error').classList.add('d-none');
 
-      const payload = {
-        game_id: document.getElementById('pred-gameId').value,
-        fee: parseFloat(document.getElementById('pred-fee').value),
-        full_name: document.getElementById('pred-name').value,
-        email: email,
-        code: document.getElementById('pred-code').value,
-        team1_score: parseInt(document.getElementById('pred-t1-score').value),
-        team2_score: parseInt(document.getElementById('pred-t2-score').value)
-      };
+  const payload = {
+    game_id: document.getElementById('pred-gameId').value,
+    fee: parseFloat(document.getElementById('pred-fee').value),
+    full_name: document.getElementById('pred-name').value,
+    email: email,
+    code: document.getElementById('pred-code').value.trim(), // Trim whitespace
+    team1_score: parseInt(document.getElementById('pred-t1-score').value),
+    team2_score: parseInt(document.getElementById('pred-t2-score').value)
+  };
 
-      const { data, error } = await _supabase.from('predictions').insert([payload]);
+  // 2. Submit to Database
+  const { data, error } = await _supabase.from('predictions').insert([payload]);
 
-      if(error) {
-        alert("Submission Error: " + error.message);
-      } else {
-        alert("Prediction securely configured and locked on cloud servers!");
-        document.getElementById('prediction-form').reset();
-        await loadMatchCenter();
-        showPage('home');
-      }
+  if(error) {
+    // Check if the error is due to our new unique constraint rule
+    if (error.code === "23505" || error.message.includes("unique_prediction_code")) {
+      alert("❌ This Secret Code is already taken by another player! Please create a different, more unique code to lock in your prediction.");
+    } else {
+      alert("Submission Error: " + error.message);
     }
+  } else {
+    alert("Prediction securely configured and locked on cloud servers!");
+    document.getElementById('prediction-form').reset();
+    await loadMatchCenter();
+    showPage('home');
+  }
+}
 
     function openResultsPage(gId) {
       activeGameId = gId;
