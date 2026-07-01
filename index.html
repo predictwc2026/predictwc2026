@@ -77,11 +77,11 @@
           <div class="row mb-4">
             <div class="col-6">
               <label class="form-label fw-semibold" id="lbl-team1">Team 1 Score</label>
-              <input type="number" class="form-control form-control-lg text-center" id="pred-t1-score" min="0" step="1" required>
+              <input type="number" class="form-control form-control-lg text-center" id="pred-t1-score" min="0" step="1" oninput="this.value=this.value.replace(/[^0-9]/g,'');" onkeydown="if(['.',',','-','+','e','E'].includes(event.key))event.preventDefault();" required>
             </div>
             <div class="col-6">
               <label class="form-label fw-semibold" id="lbl-team2">Team 2 Score</label>
-              <input type="number" class="form-control form-control-lg text-center" id="pred-t2-score" min="0" step="1" required>
+              <input type="number" class="form-control form-control-lg text-center" id="pred-t2-score" min="0" step="1" oninput="this.value=this.value.replace(/[^0-9]/g,'');" onkeydown="if(['.',',','-','+','e','E'].includes(event.key))event.preventDefault();" required>
             </div>
           </div>
           <button type="submit" class="btn btn-primary w-100 btn-lg fw-bold">Submit Forecast Entry</button>
@@ -165,11 +165,11 @@
         <div class="row g-3">
           <div class="col-md-6">
             <label class="form-label fw-semibold">Target Match Unit</label>
-            <select id="adm-gen-match-id" class="form-select"></select>
+            <select id="adm-gen-match-id" class="form-select" onchange="syncAdminPanelViews()"></select>
           </div>
           <div class="col-md-3">
             <label class="form-label fw-semibold">Quantity to Generate</label>
-            <input type="number" id="adm-gen-qty" class="form-control" min="1" max="100" value="10">
+            <input type="number" id="adm-gen-qty" class="form-control" min="1" max="100" value="10" onkeydown="if(['.',',','-','+','e','E'].includes(event.key))event.preventDefault();">
           </div>
           <div class="col-md-3 d-flex align-items-end">
             <button class="btn btn-primary w-100 fw-bold" onclick="processDraftTokens()">Generate Codes</button>
@@ -185,10 +185,10 @@
         <div id="adm-active-ledger-zone" class="mt-4">
           <h6 class="fw-bold text-dark">Active Authorized Keys Ledger (Match-wise Summary):</h6>
           <div class="input-group mb-2" style="max-width: 400px;">
-            <select id="adm-view-voucher-match-id" class="form-select form-select-sm"></select>
-            <button class="btn btn-outline-secondary btn-sm fw-bold" onclick="loadActiveMatchVouchers()">Filter & Copy Codes</button>
+            <select id="adm-view-voucher-match-id" class="form-select form-select-sm" onchange="loadActiveMatchVouchers()"></select>
+            <button class="btn btn-outline-secondary btn-sm fw-bold" onclick="loadActiveMatchVouchers()">🔄 Refresh Ledger</button>
           </div>
-          <div id="active-voucher-pool-render" class="d-flex flex-wrap gap-2 p-2 border rounded bg-white min-vh-10"></div>
+          <div id="active-voucher-pool-render" class="d-flex flex-wrap gap-2 p-2 border rounded bg-white" style="min-height: 50px;"></div>
         </div>
       </div>
 
@@ -373,6 +373,12 @@
       });
     }
 
+    function syncAdminPanelViews() {
+      const sourceVal = document.getElementById('adm-gen-match-id').value;
+      document.getElementById('adm-view-voucher-match-id').value = sourceVal;
+      loadActiveMatchVouchers();
+    }
+
     function openPredictPage(gId) {
       const m = globalMatches.find(x => x.game_id === gId);
       activeGameId = gId;
@@ -387,11 +393,10 @@
     function triggerSubmissionConfirmation(e) {
       e.preventDefault();
       
-      // Strict Integer Enforcement Validation
       const rawScore1 = document.getElementById('pred-t1-score').value;
       const rawScore2 = document.getElementById('pred-t2-score').value;
       if (rawScore1.includes('.') || rawScore2.includes('.')) {
-        alert("❌ Error: Decimal positions are rejected. Enter whole integers only.");
+        alert("❌ Error: Decimal values are blocked. Enter integers only.");
         return;
       }
 
@@ -429,7 +434,6 @@
       if(!temporaryPayloadCache) return;
 
       try {
-        // Explicit exact string matching validation
         const { data: voucherCheck, error: vErr } = await _supabase
           .from('match_vouchers')
           .select('*')
@@ -453,7 +457,6 @@
           return;
         }
 
-        // Fixed data typing block parameters
         const dataPayload = {
           game_id: String(temporaryPayloadCache.game_id),
           fee: Number(temporaryPayloadCache.fee),
@@ -541,6 +544,7 @@
       }
 
       previewZone.classList.remove('d-none');
+      document.getElementById('adm-view-voucher-match-id').value = targetMatch;
     }
 
     async function commitVouchersToCloud() {
@@ -598,6 +602,7 @@
         if (v.is_used) {
           btn.disabled = true;
         } else {
+          // Wrapped selection string inside a contextual promise closure to resolve browser compatibility issues
           btn.onclick = function() {
             copyTokenToClipboard(v.voucher_code, btn);
           };
@@ -608,18 +613,38 @@
     }
 
     function copyTokenToClipboard(text, element) {
+      if (!navigator.clipboard || !navigator.clipboard.writeText) {
+        // Fallback approach if running inside standalone non-secure frames/webviews
+        const inputShim = document.createElement("input");
+        inputShim.value = text;
+        document.body.appendChild(inputShim);
+        inputShim.select();
+        try {
+          document.execCommand('copy');
+          applyCopyButtonFeedback(element);
+        } catch (err) {
+          alert(`Code parameter: ${text}`);
+        }
+        document.body.removeChild(inputShim);
+        return;
+      }
+
       navigator.clipboard.writeText(text).then(() => {
-        const originalText = element.textContent;
-        element.textContent = "Copied! ✓";
-        element.className = "btn btn-sm btn-success text-white me-2 mb-2 font-monospace";
-        
-        setTimeout(() => {
-          element.textContent = originalText;
-          element.className = "btn btn-sm btn-light text-dark border-success border me-2 mb-2 font-monospace";
-        }, 1200);
+        applyCopyButtonFeedback(element);
       }).catch(err => {
-        alert(`Code: ${text}`);
+        alert(`Code parameters: ${text}`);
       });
+    }
+
+    function applyCopyButtonFeedback(element) {
+      const originalText = element.textContent;
+      element.textContent = "Copied! ✓";
+      element.className = "btn btn-sm btn-success text-white me-2 mb-2 font-monospace";
+      
+      setTimeout(() => {
+        element.textContent = originalText;
+        element.className = "btn btn-sm btn-light text-dark border-success border me-2 mb-2 font-monospace";
+      }, 1200);
     }
 
     function openResultsPage(gId) {
@@ -809,8 +834,8 @@
             <td><div class="fw-bold small">${m.team1} vs ${m.team2}</div></td>
             <td>
               <div class="d-flex gap-1 align-items-center">
-                <input type="number" id="adm-t1-${m.game_id}" class="form-control form-control-sm text-center" style="width:60px;" value="${m.team1_score !== null ? m.team1_score : ''}">
-                <input type="number" id="adm-t2-${m.game_id}" class="form-control form-control-sm text-center" style="width:60px;" value="${m.team2_score !== null ? m.team2_score : ''}">
+                <input type="number" id="adm-t1-${m.game_id}" class="form-control form-control-sm text-center" style="width:60px;" value="${m.team1_score !== null ? m.team1_score : ''}" onkeydown="if(['.',',','-','+','e','E'].includes(event.key))event.preventDefault();">
+                <input type="number" id="adm-t2-${m.game_id}" class="form-control form-control-sm text-center" style="width:60px;" value="${m.team2_score !== null ? m.team2_score : ''}" onkeydown="if(['.',',','-','+','e','E'].includes(event.key))event.preventDefault();">
               </div>
             </td>
             <td><button class="btn btn-danger btn-sm fw-bold" onclick="commitScoreFromFrontend('${m.game_id}')">Update</button></td>
