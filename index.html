@@ -146,13 +146,12 @@
   <script>
     const SUPABASE_URL = "https://glrczpyhppinotlssmrk.supabase.co"; 
     const SUPABASE_ANON_KEY = "sb_publishable_zLJKzsCkRQc97Ce-Rm4xxA_Ono7OlFa";
-    const ADMIN_PASS_PIN = "1234"; // 👈 Access Pin code to log scores on the front-end
     
     const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     let globalMatches = [];
     let activeGameId = "";
-    let currentFilterTab = "Open"; // Tracks current dashboard state context filter
+    let currentFilterTab = "Open"; 
 
     window.onload = function() { loadMatchCenter(); };
 
@@ -168,7 +167,6 @@
       renderDashboard();
     }
 
-    // Maps clean flags dynamically from open-source repos
     function getFlagUrl(countryName) {
       const cleanName = countryName.trim().toLowerCase();
       const flagMapping = {
@@ -411,13 +409,27 @@
       showPage('results');
     }
 
-    // FRONTEND ADMIN MODULE CONTROLLERS
-    function triggerAdminAuth() {
-      const pin = prompt("Enter administrative authentication credential passcode:");
-      if (pin === ADMIN_PASS_PIN) {
+    // SECURE DB AUTHENTICATION FOR ADMIN MODULE
+    async function triggerAdminAuth() {
+      const enteredPin = prompt("Enter administrative authentication credential passcode:");
+      if (!enteredPin) return;
+
+      // Fetch the secret PIN configuration directly from Supabase
+      const { data, error } = await _supabase
+        .from('system_config')
+        .select('value')
+        .eq('key', 'admin_pin')
+        .single();
+
+      if (error || !data) {
+        alert("Security Configuration Synch Error. Check system_config table.");
+        return;
+      }
+
+      if (enteredPin === data.value) {
         renderAdminDashboard();
         showPage('admin');
-      } else if (pin !== null) {
+      } else {
         alert("Invalid access authorization keys.");
       }
     }
