@@ -251,7 +251,7 @@ async function handlePredictSubmit(e) {
       renderResultsView(activeGameId, document.getElementById('verify-code-input').value);
     }
 
-    async function renderResultsView(gId, filterCode) {
+async function renderResultsView(gId, filterCode) {
       const match = globalMatches.find(x => x.game_id === gId);
       const now = new Date();
       const deadlinePassed = now > new Date(match.deadline);
@@ -261,33 +261,72 @@ async function handlePredictSubmit(e) {
         return;
       }
 
-      // Secure Query Strategy: If no filterCode is entered, fetch nothing to maintain absolute network isolation.
-      let preds = [];
-      if (filterCode && filterCode.trim() !== "") {
-        const { data, error } = await _supabase.from('predictions').select('*').eq('game_id', gId).eq('code', filterCode);
-        if(!error && data) preds = data;
-      }
-
       const tbody = document.getElementById('results-table-body');
       tbody.innerHTML = "";
 
-      if (preds.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="2" class="text-center text-muted">No verified configurations found for this decryption parameters.</td></tr>`;
+      // 1. If no code has been entered yet, show an explicit prompt to unlock
+      if (!filterCode || filterCode.trim() === "") {
+        tbody.innerHTML = `<tr><td colspan="2" class="text-center text-muted">🔒 Please enter your secret submission code above to unlock the leaderboard.</td></tr>`;
         document.getElementById('res-total').innerText = "0";
-        document.getElementById('res-solo').innerText = "0";
-      } else {
-        preds.forEach(p => {
-          tbody.innerHTML += `
-            <tr>
-              <td class="fw-semibold">${p.full_name}</td>
-              <td><span class="badge bg-success">${p.team1_score} - ${p.team2_score}</span></td>
-            </tr>`;
-        });
-        document.getElementById('res-total').innerText = preds.length;
-        document.getElementById('res-solo').innerText = "Verified";
+        document.getElementById('res-solo').innerText = "Locked";
+        document.getElementById('res-title').innerText = `Results Log: ${match.team1} vs ${match.team2}`;
+        showPage('results');
+        return;
       }
 
+      // 2. Step 1: Verify if the typed code belongs to a valid applicant for this match
+      const { data: verificationCheck, error: vError } = await _supabase
+        .from('predictions')
+        .select('id')
+        .eq('game_id', gId)
+        .eq('code', filterCode)
+        .limit(1);
+
+      if (vError || !verificationCheck || verificationCheck.length === 0) {
+        alert("Invalid Secret Code: You must provide a valid code used during submission for this match to unlock the log.");
+        tbody.innerHTML = `<tr><td colspan="2" class="text-center text-danger">⚠️ Access Denied. Invalid entry code parameters.</td></tr>`;
+        document.getElementById('res-total').innerText = "0";
+        document.getElementById('res-solo').innerText = "Unauthorized";
+        return;
+      }
+
+      // 3. Step 2: Since the code is verified, fetch ALL predictions for this match layout
+      const { data: allPreds, error: fetchError } = await _supabase
+        .from('predictions')
+        .select('*')
+        .eq('game_id', gId);
+
+      if (fetchError || !allPreds) {
+        alert("Error loading tournament ledger configuration.");
+        return;
+      }
+
+      // 4. Calculate true score combination mapping for "Solo Unique Predictions"
+      let scoreComboMap = {};
+      allPreds.forEach(p => {
+        let key = `${p.team1_score}-${p.team2_score}`;
+        scoreComboMap[key] = (scoreComboMap[key] || 0) + 1;
+      });
+
+      let soloCount = 0;
+
+      // 5. Render every single participant's entries onto the board
+      allPreds.forEach(p => {
+        let comboKey = `${p.team1_score}-${p.team2_score}`;
+        if(scoreComboMap[comboKey] === 1) soloCount++;
+
+        tbody.innerHTML += `
+          <tr>
+            <td class="fw-semibold">${p.full_name}</td>
+            <td><span class="badge bg-success">${p.team1_score} - ${p.team2_score}</span></td>
+          </tr>`;
+      });
+
+      // 6. Update the metrics counters with live totals
       document.getElementById('res-title').innerText = `Results Log: ${match.team1} vs ${match.team2}`;
+      document.getElementById('res-total').innerText = allPreds.length;
+      document.getElementById('res-solo').innerText = soloCount;
+
       showPage('results');
     }
   </script>
