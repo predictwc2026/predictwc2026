@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FIFA World Cup Goal Predictor</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body { background-color: #f4f7f6; font-family: system-ui, sans-serif; }
+    .navbar { background-color: #3b0042 !important; }
+    .card { border-radius: 12px; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.06); margin-bottom: 20px; }
+    .flag-img { width: 45px; height: 30px; object-fit: cover; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.15); }
+    .badge-open { background-color: #28a745; }
+    .badge-closed { background-color: #dc3545; }
+    .score-badge { background-color: #e9ecef; color: #333; font-size: 1.25rem; font-weight: bold; padding: 5px 15px; border-radius: 8px; }
+  </style>
+</head>
+<body>
+
+  <nav class="navbar navbar-dark sticky-top">
+    <div class="container">
+      <a class="navbar-brand fw-bold" href="#" onclick="showPage('home')">🏆 World Cup Predictor</a>
+    </div>
+  </nav>
+
+  <div class="container my-4">
+    
+    <div id="page-home" class="page-view">
+      <h2 class="mb-4 text-center text-dark fw-bold">Live Match Prediction Center</h2>
+      <div id="matches-container" class="row">
+        <div class="text-center col-12">
+          <div class="spinner-border text-primary" role="status"></div>
+          <p class="mt-2">Connecting to Live Server Matrix...</p>
+        </div>
+      </div>
+    </div>
+
+    <div id="page-predict" class="page-view d-none">
+      <button class="btn btn-secondary mb-3" onclick="showPage('home')">← Back to Fixtures</button>
+      <div class="card p-4 mx-auto" style="max-width: 600px;">
+        <h3 class="fw-bold mb-3">Submit Prediction</h3>
+        <h5 id="predict-title" class="text-muted mb-4"></h5>
+        <form id="prediction-form" onsubmit="handlePredictSubmit(event)">
+          <input type="hidden" id="pred-gameId">
+          <input type="hidden" id="pred-fee">
+          
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Full Name</label>
+            <input type="text" class="form-control" id="pred-name" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Gmail Address</label>
+            <input type="email" class="form-control" id="pred-email" placeholder="username@gmail.com" required>
+            <div class="form-text text-danger d-none" id="email-error">Only standard Google accounts (@gmail.com) are accepted.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Secret Entry Code</label>
+            <input type="text" class="form-control" id="pred-code" placeholder="Create a secret code to view your results later" required>
+          </div>
+          <div class="row mb-4">
+            <div class="col-6">
+              <label class="form-label fw-semibold" id="lbl-team1">Team 1 Score</label>
+              <input type="number" class="form-control form-control-lg text-center" id="pred-t1-score" min="0" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold" id="lbl-team2">Team 2 Score</label>
+              <input type="number" class="form-control form-control-lg text-center" id="pred-t2-score" min="0" required>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-success w-100 btn-lg fw-bold">Lock Prediction Entry</button>
+        </form>
+      </div>
+    </div>
+
+    <div id="page-results" class="page-view d-none">
+      <button class="btn btn-secondary mb-3" onclick="showPage('home')">← Back to Fixtures</button>
+      <div class="card p-4">
+        <h3 id="res-title" class="fw-bold">Match Result Statistics</h3>
+        
+        <div class="row my-4 text-center">
+          <div class="col-md-6 mb-2">
+            <div class="p-3 bg-light border rounded"><h6>Total System Predictions</h6><h2 id="res-total" class="fw-bold text-primary">0</h2></div>
+          </div>
+          <div class="col-md-6 mb-2">
+            <div class="p-3 bg-light border rounded"><h6>Solo Unique Predictions</h6><h2 id="res-solo" class="fw-bold text-warning">0</h2></div>
+          </div>
+        </div>
+        
+        <div class="mb-4 p-3 bg-light rounded border">
+          <label class="form-label fw-bold text-secondary">Unlock Forecast Board Entries:</label>
+          <div class="input-group">
+            <input type="text" id="verify-code-input" class="form-control" placeholder="Enter your secret submission code">
+            <button class="btn btn-dark" onclick="reloadResultsWithCode()">Decrypt Scores</button>
+          </div>
+        </div>
+
+        <h5 class="fw-bold mt-4">Applicant Forecast Log Matrix</h5>
+        <div class="table-responsive">
+          <table class="table table-striped align-middle">
+            <thead>
+              <tr><th>Applicant Name</th><th>Forecast Configuration</th></tr>
+            </thead>
+            <tbody id="results-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // --- STEP 2 CONFIGURATION ---
+    const SUPABASE_URL = "https://glrczpyhppinotlssmrk.supabase.co"; 
+    const SUPABASE_ANON_KEY = "sb_publishable_zLJKzsCkRQc97Ce-Rm4xxA_Ono7OlFa";
+    
+    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let globalMatches = [];
+    let activeGameId = "";
+
+    window.onload = function() { loadMatchCenter(); };
+
+    function showPage(pageId) {
+      document.querySelectorAll('.page-view').forEach(el => el.classList.add('d-none'));
+      document.getElementById('page-' + pageId).classList.remove('d-none');
+    }
+
+async function loadMatchCenter() {
+  const { data: matches, error: mErr } = await _supabase.from('matches').select('*');
+  const { data: preds, error: pErr } = await _supabase.from('predictions').select('game_id');
+  
+  if (mErr) { 
+    console.error("Supabase Error:", mErr); 
+    alert("Database sync error!"); 
+    return; 
+  }
+
+  let counts = {};
+  if (preds) {
+    preds.forEach(p => { counts[p.game_id] = (counts[p.game_id] || 0) + 1; });
+  }
+
+  globalMatches = (matches || []).map(m => {
+    // Force browser to parse the timestamp properly
+    const deadlineDate = new Date(m.deadline);
+    
+    // Fallback safe formatting string if toLocaleString fails
+    let formattedDeadline = m.deadline; 
+    try {
+      const options = { timeZone: 'Asia/Kathmandu', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true };
+      formattedDeadline = deadlineDate.toLocaleString('en-US', options);
+    } catch(e) {
+      console.error("Date formatting error:", e);
+    }
+    
+    const now = new Date();
+    const status = (now > deadlineDate) ? "Closed" : "Open";
+
+    return {
+      ...m,
+      status: status,
+      formattedDeadline: formattedDeadline,
+      predictionsCount: counts[m.game_id] || 0,
+      flag1: `https://openflags.net/flag/${encodeURIComponent(m.team1.trim().toLowerCase())}.png`,
+      flag2: `https://openflags.net/flag/${encodeURIComponent(m.team2.trim().toLowerCase())}.png`
+    };
+  });
+
+  renderDashboard();
+}
+
+    function renderDashboard() {
+      const container = document.getElementById('matches-container');
+      container.innerHTML = "";
+
+      if(globalMatches.length === 0) {
+        container.innerHTML = `<div class="col-12 text-center text-muted p-5"><h5>No fixtures active at this moment.</h5></div>`;
+        return;
+      }
+
+      globalMatches.forEach(m => {
+        container.innerHTML += `
+          <div class="col-md-6 col-lg-4">
+            <div class="card p-3">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="badge ${m.status==='Open'?'badge-open':'badge-closed'}">${m.status}</span>
+                <small class="text-muted fw-bold">Fee: NPR ${m.fee}</small>
+              </div>
+              <div class="d-flex align-items-center justify-content-between my-3 text-center">
+                <div style="width:40%;">
+                  <img src="${m.flag1}" onerror="this.src='https://placehold.co/45x30?text=🏆'" class="flag-img mb-1"><br>
+                  <span class="fw-bold small d-block text-truncate">${m.team1}</span>
+                </div>
+                <div style="width:20%;"><span class="score-badge">${m.team1_score} : ${m.team2_score}</span></div>
+                <div style="width:40%;">
+                  <img src="${m.flag2}" onerror="this.src='https://placehold.co/45x30?text=🏆'" class="flag-img mb-1"><br>
+                  <span class="fw-bold small d-block text-truncate">${m.team2}</span>
+                </div>
+              </div>
+              <div class="text-muted small mb-1">⏰ Deadline: <b>${m.formattedDeadline} (NPT)</b></div>
+              <div class="text-muted small mb-3">📊 Submissions: <b>${m.predictionsCount}</b></div>
+              <div class="d-flex gap-2">
+                <button class="btn btn-primary btn-sm flex-fill fw-bold" ${m.status==='Closed'?'disabled':''} onclick="openPredictPage('${m.game_id}')">Apply Now</button>
+                <button class="btn btn-secondary btn-sm flex-fill fw-bold" onclick="openResultsPage('${m.game_id}')">Results</button>
+              </div>
+            </div>
+          </div>`;
+      });
+    }
+
+    function openPredictPage(gId) {
+      const m = globalMatches.find(x => x.game_id === gId);
+      activeGameId = gId;
+      document.getElementById('pred-gameId').value = gId;
+      document.getElementById('pred-fee').value = m.fee;
+      document.getElementById('predict-title').innerText = `${m.team1} vs ${m.team2}`;
+      document.getElementById('lbl-team1').innerText = m.team1 + " Score";
+      document.getElementById('lbl-team2').innerText = m.team2 + " Score";
+      showPage('predict');
+    }
+
+async function handlePredictSubmit(e) {
+  e.preventDefault();
+  const email = document.getElementById('pred-email').value;
+  if(!email.toLowerCase().endsWith('@gmail.com')) {
+    document.getElementById('email-error').classList.remove('d-none');
+    return;
+  }
+  document.getElementById('email-error').classList.add('d-none');
+
+  const payload = {
+    game_id: document.getElementById('pred-gameId').value,
+    fee: parseFloat(document.getElementById('pred-fee').value),
+    full_name: document.getElementById('pred-name').value,
+    email: email,
+    code: document.getElementById('pred-code').value,
+    team1_score: parseInt(document.getElementById('pred-t1-score').value),
+    team2_score: parseInt(document.getElementById('pred-t2-score').value)
+  };
+
+  // Execute submission with detailed server response processing
+  const { data, error } = await _supabase.from('predictions').insert([payload]);
+
+  if(error) {
+    // This captures the server-side deadline exception perfectly
+    alert("Submission Error: " + error.message);
+  } else {
+    alert("Prediction securely configured and locked on cloud servers!");
+    document.getElementById('prediction-form').reset();
+    await loadMatchCenter();
+    showPage('home');
+  }
+}
+
+    function openResultsPage(gId) {
+      activeGameId = gId;
+      document.getElementById('verify-code-input').value = "";
+      renderResultsView(gId, "");
+    }
+
+    function reloadResultsWithCode() {
+      renderResultsView(activeGameId, document.getElementById('verify-code-input').value);
+    }
+
+    async function renderResultsView(gId, filterCode) {
+      const match = globalMatches.find(x => x.game_id === gId);
+      const now = new Date();
+      const deadlinePassed = now > new Date(match.deadline);
+
+      if(!deadlinePassed) {
+        alert("System Lockout: Scoreboard analytics remain classified until match entry conditions close at deadline context parameters.");
+        return;
+      }
+
+      // Fetch predictions matching the current Match Game ID
+      const { data: preds, error } = await _supabase.from('predictions').select('*').eq('game_id', gId);
+      if(error) return;
+
+      let scoreComboMap = {};
+      preds.forEach(p => {
+        let key = `${p.team1_score}-${p.team2_score}`;
+        scoreComboMap[key] = (scoreComboMap[key] || 0) + 1;
+      });
+
+      let soloCount = 0;
+      const tbody = document.getElementById('results-table-body');
+      tbody.innerHTML = "";
+
+      preds.forEach(p => {
+        let comboKey = `${p.team1_score}-${p.team2_score}`;
+        if(scoreComboMap[comboKey] === 1) soloCount++;
+
+        // Show configuration if user inputs matching authorization validation code
+        let isCodeMatch = String(p.code) === String(filterCode);
+        let displayScore = isCodeMatch ? `${p.team1_score} - ${p.team2_score}` : "🔒 Protected (Enter Matching Entry Code)";
+
+        tbody.innerHTML += `
+          <tr>
+            <td class="fw-semibold">${p.full_name}</td>
+            <td><span class="badge ${isCodeMatch?'bg-success':'bg-dark'}">${displayScore}</span></td>
+          </tr>`;
+      });
+
+      document.getElementById('res-title').innerText = `Results Log: ${match.team1} vs ${match.team2}`;
+      document.getElementById('res-total').innerText = preds.length;
+      document.getElementById('res-solo').innerText = soloCount;
+
+      showPage('results');
+    }
+  </script>
+</body>
+</html>
