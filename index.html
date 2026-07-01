@@ -410,23 +410,22 @@
     }
 
     // SECURE DB AUTHENTICATION FOR ADMIN MODULE
+// SECURE DB AUTHENTICATION FOR ADMIN MODULE
     async function triggerAdminAuth() {
       const enteredPin = prompt("Enter administrative authentication credential passcode:");
       if (!enteredPin) return;
 
-      // Fetch the secret PIN configuration directly from Supabase
-      const { data, error } = await _supabase
-        .from('system_config')
-        .select('value')
-        .eq('key', 'admin_pin')
-        .single();
+      // Calls the secure database function completely hiding the pin from network inspectors
+      const { data: isAuthorized, error } = await _supabase
+        .rpc('verify_admin_pin', { entered_pin: enteredPin });
 
-      if (error || !data) {
-        alert("Security Configuration Synch Error. Check system_config table.");
+      if (error) {
+        alert("Security Configuration Synch Error.");
+        console.error(error);
         return;
       }
 
-      if (enteredPin === data.value) {
+      if (isAuthorized === true) {
         renderAdminDashboard();
         showPage('admin');
       } else {
