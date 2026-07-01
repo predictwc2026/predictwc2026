@@ -38,6 +38,7 @@
 
   <div class="container my-4">
     
+    <!-- DASHBOARD VIEW -->
     <div id="page-home" class="page-view">
       <h2 class="mb-4 text-center text-dark fw-bold">Live Match Prediction Center</h2>
       
@@ -54,6 +55,7 @@
       </div>
     </div>
 
+    <!-- PREDICTION SUBMISSION VIEW -->
     <div id="page-predict" class="page-view d-none">
       <button class="btn btn-secondary mb-3" onclick="showPage('home')">← Back to Fixtures</button>
       <div class="card p-4 mx-auto" style="max-width: 600px;">
@@ -91,6 +93,7 @@
       </div>
     </div>
 
+    <!-- GLOBAL LEADERBOARD VIEW -->
     <div id="page-leaderboard" class="page-view d-none">
       <div class="text-center mb-2">
         <a href="#" class="text-decoration-none small text-secondary" onclick="showPage('home')">← All Games</a>
@@ -116,6 +119,7 @@
       </div>
     </div>
 
+    <!-- MY PRIVATE PREDICTIONS VIEW -->
     <div id="page-mypredictions" class="page-view d-none">
       <button class="btn btn-secondary mb-3" onclick="showPage('home')">← Back to Fixtures</button>
       <div class="card p-4 mx-auto" style="max-width: 750px;">
@@ -141,6 +145,7 @@
       </div>
     </div>
 
+    <!-- MATCH SPECIFIC RESULTS VIEW (Export Buttons Restricted from Public Scope) -->
     <div id="page-results" class="page-view d-none">
       <button class="btn btn-secondary mb-3" onclick="showPage('home')">← Back to Fixtures</button>
       <div class="card p-4">
@@ -180,11 +185,12 @@
       </div>
     </div>
 
+    <!-- ADMIN PANEL VIEW (Contains Secure Admin Export Triggers) -->
     <div id="page-admin" class="page-view d-none">
       <button class="btn btn-secondary mb-3" onclick="showPage('home')">← Close Dashboard Panel</button>
-      <div class="card p-4 mx-auto" style="max-width: 700px;">
+      <div class="card p-4 mx-auto" style="max-width: 800px;">
         <h3 class="fw-bold text-danger mb-4">🛡️ Match Official Dashboard Terminal</h3>
-        <p class="text-muted">Select an expired fixture to log final official goals and update parameters.</p>
+        <p class="text-muted">Select an expired fixture to log final scores or securely download the full breakdown spreadsheet.</p>
         <div class="table-responsive">
           <table class="table align-middle border">
             <thead class="table-dark">
@@ -276,7 +282,6 @@
     }
 
     function renderDashboard() {
-      // Clear any running countdown heartbeat intervals first
       if (countdownIntervalId) clearInterval(countdownIntervalId);
 
       const container = document.getElementById('matches-container');
@@ -290,7 +295,6 @@
       }
 
       filtered.forEach(m => {
-        // Create an unique element wrapper ID specifically for tracking this countdown element
         const countdownSpanHtml = m.status === 'Open' 
           ? `<div class="text-danger small mb-1">⏳ Closing in: <span class="countdown-text" id="timer-${m.game_id}">--:--:--</span></div>` 
           : '';
@@ -324,13 +328,11 @@
           </div>`;
       });
 
-      // Start the live ticker heartbeat if there are Open Games visible
       if (currentFilterTab === 'Open') {
         startLiveCountdownTicker(filtered);
       }
     }
 
-    // COUNTDOWN TIMERS HEARTBEAT ENGINE
     function startLiveCountdownTicker(openMatches) {
       function updateAllTimers() {
         const now = new Date().getTime();
@@ -353,22 +355,13 @@
             const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
             const seconds = Math.floor((distance % (1000 * 60)) / 1000);
 
-            // Left pad single digits with zeros for classic stopwatch formatting
-            const displayHours = hours.toString().padStart(2, '0');
-            const displayMinutes = minutes.toString().padStart(2, '0');
-            const displaySeconds = seconds.toString().padStart(2, '0');
-
-            targetElement.innerHTML = `${displayHours}h ${displayMinutes}m ${displaySeconds}s`;
+            targetElement.innerHTML = `${hours.toString().padStart(2, '0')}h ${minutes.toString().padStart(2, '0')}m ${seconds.toString().padStart(2, '0')}s`;
           }
         });
 
-        // Optimization: If everything displayed has expired, clear the interval loop
-        if (!matchesStillOpen && countdownIntervalId) {
-          clearInterval(countdownIntervalId);
-        }
+        if (!matchesStillOpen && countdownIntervalId) clearInterval(countdownIntervalId);
       }
 
-      // Execute right away so there is no 1-second white flash delay, then loop
       updateAllTimers();
       countdownIntervalId = setInterval(updateAllTimers, 1000);
     }
@@ -384,44 +377,40 @@
       showPage('predict');
     }
 
-async function handlePredictSubmit(e) {
-  e.preventDefault();
-  
-  // 1. Validate Gmail Domain
-  const email = document.getElementById('pred-email').value;
-  if(!email.toLowerCase().endsWith('@gmail.com')) {
-    document.getElementById('email-error').classList.remove('d-none');
-    return;
-  }
-  document.getElementById('email-error').classList.add('d-none');
+    async function handlePredictSubmit(e) {
+      e.preventDefault();
+      const email = document.getElementById('pred-email').value;
+      if(!email.toLowerCase().endsWith('@gmail.com')) {
+        document.getElementById('email-error').classList.remove('d-none');
+        return;
+      }
+      document.getElementById('email-error').classList.add('d-none');
 
-  const payload = {
-    game_id: document.getElementById('pred-gameId').value,
-    fee: parseFloat(document.getElementById('pred-fee').value),
-    full_name: document.getElementById('pred-name').value,
-    email: email,
-    code: document.getElementById('pred-code').value.trim(), // Trim whitespace
-    team1_score: parseInt(document.getElementById('pred-t1-score').value),
-    team2_score: parseInt(document.getElementById('pred-t2-score').value)
-  };
+      const payload = {
+        game_id: document.getElementById('pred-gameId').value,
+        fee: parseFloat(document.getElementById('pred-fee').value),
+        full_name: document.getElementById('pred-name').value,
+        email: email,
+        code: document.getElementById('pred-code').value.trim(),
+        team1_score: parseInt(document.getElementById('pred-t1-score').value),
+        team2_score: parseInt(document.getElementById('pred-t2-score').value)
+      };
 
-  // 2. Submit to Database
-  const { data, error } = await _supabase.from('predictions').insert([payload]);
+      const { data, error } = await _supabase.from('predictions').insert([payload]);
 
-  if(error) {
-    // Check if the error is due to our new unique constraint rule
-    if (error.code === "23505" || error.message.includes("unique_prediction_code")) {
-      alert("❌ This Secret Code is already taken by another player! Please create a different, more unique code to lock in your prediction.");
-    } else {
-      alert("Submission Error: " + error.message);
+      if(error) {
+        if (error.code === "23505" || error.message.includes("unique_prediction_code")) {
+          alert("❌ This Secret Code is already taken by another player! Please create a different, more unique code.");
+        } else {
+          alert("Submission Error: " + error.message);
+        }
+      } else {
+        alert("Prediction securely configured and locked on cloud servers!");
+        document.getElementById('prediction-form').reset();
+        await loadMatchCenter();
+        showPage('home');
+      }
     }
-  } else {
-    alert("Prediction securely configured and locked on cloud servers!");
-    document.getElementById('prediction-form').reset();
-    await loadMatchCenter();
-    showPage('home');
-  }
-}
 
     function openResultsPage(gId) {
       activeGameId = gId;
@@ -567,9 +556,7 @@ async function handlePredictSubmit(e) {
       
       allMatches.forEach(m => {
         matchMap[m.game_id] = m;
-        if (m.team1_score !== null && m.team2_score !== null) {
-          concludedGamesCount++;
-        }
+        if (m.team1_score !== null && m.team2_score !== null) concludedGamesCount++;
       });
 
       let gameDistribution = {};
@@ -714,7 +701,7 @@ async function handlePredictSubmit(e) {
       document.getElementById('vault-results-area').classList.remove('d-none');
     }
 
-    // SECURE DB AUTHENTICATION FOR ADMIN MODULE
+    // ADMINISTRATIVE OPERATIONS MODULE
     async function triggerAdminAuth() {
       const enteredPin = prompt("Enter administrative authentication credential passcode:");
       if (!enteredPin) return;
@@ -755,7 +742,10 @@ async function handlePredictSubmit(e) {
               </div>
             </td>
             <td>
-              <button class="btn btn-danger btn-sm fw-bold" onclick="commitScoreFromFrontend('${m.game_id}')">Update</button>
+              <div class="d-flex gap-1">
+                <button class="btn btn-danger btn-sm fw-bold" onclick="commitScoreFromFrontend('${m.game_id}')">Update</button>
+                <button class="btn btn-outline-primary btn-sm fw-bold" onclick="exportPredictionsToCSV('${m.game_id}')">📥 Export</button>
+              </div>
             </td>
           </tr>`;
       });
@@ -785,6 +775,49 @@ async function handlePredictSubmit(e) {
         await loadMatchCenter();
         renderAdminDashboard();
       }
+    }
+
+    // EXCLUSIVE ADMINISTRATIVE EXPORT ENGINE
+    async function exportPredictionsToCSV(gId) {
+      const match = globalMatches.find(x => x.game_id === gId);
+      
+      const { data: predictions, error } = await _supabase
+        .from('predictions')
+        .select('full_name, email, code, team1_score, team2_score')
+        .eq('game_id', gId);
+
+      if (error) {
+        alert("Export Error: Could not pull forecast records from remote database.");
+        return;
+      }
+
+      if (!predictions || predictions.length === 0) {
+        alert("No prediction metrics registered for this match yet.");
+        return;
+      }
+
+      // 1. Build Spreadsheet Headers matching layout history matrices
+      let csvContent = "data:text/csv;charset=utf-8,";
+      csvContent += `Match Details: ${match.team1} vs ${match.team2} (Official Result: ${match.team1_score !== null ? match.team1_score : '-'}-${match.team2_score !== null ? match.team2_score : '-'})\n`;
+      csvContent += "Participant Name,Gmail Address,Secret Verification Code,Predicted Team 1 Score,Predicted Team 2 Score\n";
+
+      // 2. Escape text fields and append payload columns
+      predictions.forEach(p => {
+        const cleanName = `"${p.full_name.replace(/"/g, '""')}"`;
+        const cleanEmail = `"${p.email.replace(/"/g, '""')}"`;
+        const cleanCode = `"${p.code.replace(/"/g, '""')}"`;
+        csvContent += `${cleanName},${cleanEmail},${cleanCode},${p.team1_score},${p.team2_score}\n`;
+      });
+
+      // 3. Mount localized filesystem triggers to spawn immediate secure download downloads
+      const encodedUri = encodeURI(csvContent);
+      const tempLink = document.createElement("a");
+      tempLink.setAttribute("href", encodedUri);
+      tempLink.setAttribute("download", `Predictions_${match.team1}_vs_${match.team2}_Export.csv`);
+      document.body.appendChild(tempLink);
+      
+      tempLink.click();
+      document.body.removeChild(tempLink);
     }
   </script>
 </body>
