@@ -15,6 +15,7 @@
     .badge-closed { background-color: #dc3545; }
     .score-badge { background-color: #e9ecef; color: #333; font-size: 1.25rem; font-weight: bold; padding: 5px 15px; border-radius: 8px; }
     .combo-pill { display: inline-block; background-color: #e9ecef; padding: 6px 12px; margin: 4px; border-radius: 20px; font-weight: 600; font-size: 0.9rem; }
+    .winner-row { background-color: #fff9e6 !important; }
   </style>
 </head>
 <body>
@@ -338,26 +339,38 @@
       let calculatedPayout = 0;
       if (finalScoreKey && matchingPredictionsCount > 0) {
         calculatedPayout = (allPreds.length * match.fee) / matchingPredictionsCount;
-        calculatedPayout = Math.round(calculatedPayout * 100) / 100; // Round to 2 decimal places
+        calculatedPayout = Math.round(calculatedPayout * 100) / 100;
       }
 
       let soloCount = 0;
 
-      // Render rows
-      allPreds.forEach(p => {
+      // Map rows with win status so we can sort them
+      let processedPreds = allPreds.map(p => {
         let comboKey = `${p.team1_score}-${p.team2_score}`;
         if(scoreComboMap[comboKey] === 1) soloCount++;
 
-        let payoutValue = 0;
-        if (finalScoreKey && comboKey === finalScoreKey) {
-          payoutValue = calculatedPayout;
-        }
+        let isWinner = finalScoreKey && comboKey === finalScoreKey;
+        let payoutValue = isWinner ? calculatedPayout : 0;
+        let displayName = isWinner ? `🏆 ${p.full_name}` : p.full_name;
 
+        return {
+          ...p,
+          displayName: displayName,
+          payoutValue: payoutValue,
+          isWinner: isWinner
+        };
+      });
+
+      // Sort predictions: Winners go to the top (true first, then false)
+      processedPreds.sort((a, b) => (b.isWinner - a.isWinner));
+
+      // Render sorted rows to the UI
+      processedPreds.forEach(p => {
         tbody.innerHTML += `
-          <tr>
-            <td class="fw-semibold">${p.full_name}</td>
+          <tr class="${p.isWinner ? 'winner-row' : ''}">
+            <td class="fw-semibold">${p.displayName}</td>
             <td><span class="badge bg-success">${p.team1_score} - ${p.team2_score}</span></td>
-            <td class="fw-bold ${payoutValue > 0 ? 'text-success' : 'text-muted'}">NPR ${payoutValue}</td>
+            <td class="fw-bold ${p.payoutValue > 0 ? 'text-success' : 'text-muted'}">NPR ${p.payoutValue}</td>
           </tr>`;
       });
 
