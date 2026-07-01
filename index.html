@@ -184,9 +184,10 @@
 
         <div id="adm-active-ledger-zone" class="mt-4">
           <h6 class="fw-bold text-dark">Active Authorized Keys Ledger (Match-wise Summary):</h6>
-          <div class="input-group mb-2" style="max-width: 400px;">
+          <div class="input-group mb-2" style="max-width: 550px;">
             <select id="adm-view-voucher-match-id" class="form-select form-select-sm" onchange="loadActiveMatchVouchers()"></select>
             <button class="btn btn-outline-secondary btn-sm fw-bold" onclick="loadActiveMatchVouchers()">🔄 Refresh Ledger</button>
+            <button class="btn btn-dark btn-sm fw-bold" id="btn-copy-all-unused" onclick="copyAllUnusedTokensToClipboard()">📋 Copy All Unused</button>
           </div>
           <div id="active-voucher-pool-render" class="d-flex flex-wrap gap-2 p-2 border rounded bg-white" style="min-height: 50px;"></div>
         </div>
@@ -245,6 +246,7 @@
     let bootstrapModalInstance = null;
     let temporaryPayloadCache = null;
     let pendingDraftVouchersArray = [];
+    let currentUnusedVouchersCache = [];
 
     window.onload = function() { 
       loadMatchCenter(); 
@@ -446,14 +448,14 @@
         }
 
         if (!voucherCheck || voucherCheck.length === 0) {
-          alert(`❌ Access Denied: "${temporaryPayloadCache.code}" is not a valid official voucher code for this match. You cannot use custom codes.`);
+          alert(`❌ Access Denied: "${temporaryPayloadCache.code}" is not a valid official voucher code for this match.`);
           return;
         }
 
         const voucher = voucherCheck[0];
 
         if (voucher.is_used) {
-          alert("❌ Submission Failure: This official voucher code has already been consumed by another player!");
+          alert("❌ Submission Failure: This official voucher code has already been consumed!");
           return;
         }
 
@@ -558,7 +560,7 @@
         .insert(pendingDraftVouchersArray);
 
       if(error) {
-        alert("SQL Constraints Intercept: Duplicate codes found across ledger. Click generate to remake clean strings.");
+        alert("SQL Constraints Intercept: Duplicate codes found across ledger.");
       } else {
         alert("✅ Security tokens saved to database successfully!");
         document.getElementById('adm-vouchers-preview-zone').classList.add('d-none');
@@ -570,7 +572,11 @@
     async function loadActiveMatchVouchers() {
       const mId = document.getElementById('adm-view-voucher-match-id').value;
       const renderArea = document.getElementById('active-voucher-pool-render');
+      const copyAllBtn = document.getElementById('btn-copy-all-unused');
+      
       renderArea.innerHTML = "<small class='text-muted'>Querying verification logs...</small>";
+      currentUnusedVouchersCache = []; 
+      if(copyAllBtn) copyAllBtn.disabled = true;
 
       const { data, error } = await _supabase
         .from('match_vouchers')
@@ -590,6 +596,10 @@
       renderArea.innerHTML = "";
       
       data.forEach(v => {
+        if (!v.is_used) {
+          currentUnusedVouchersCache.push(v.voucher_code);
+        }
+
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = v.is_used 
@@ -602,7 +612,6 @@
         if (v.is_used) {
           btn.disabled = true;
         } else {
-          // Wrapped selection string inside a contextual promise closure to resolve browser compatibility issues
           btn.onclick = function() {
             copyTokenToClipboard(v.voucher_code, btn);
           };
@@ -610,11 +619,57 @@
         
         renderArea.appendChild(btn);
       });
+
+      if (currentUnusedVouchersCache.length > 0 && copyAllBtn) {
+        copyAllBtn.disabled = false;
+      }
+    }
+
+    function copyAllUnusedTokensToClipboard() {
+      if (currentUnusedVouchersCache.length === 0) {
+        alert("No active unused voucher codes found for this fixture.");
+        return;
+      }
+
+      const payloadText = currentUnusedVouchersCache.join("\n");
+      const masterBtn = document.getElementById('btn-copy-all-unused');
+
+      if (!navigator.clipboard || !navigator.clipboard.writeText) {
+        const fallbackShim = document.createElement("textarea");
+        fallbackShim.value = payloadText;
+        document.body.appendChild(fallbackShim);
+        fallbackShim.select();
+        try {
+          document.execCommand('copy');
+          applyCopyAllFeedback(masterBtn);
+        } catch (err) {
+          alert("Failed to fallback copy setup.");
+        }
+        document.body.removeChild(fallbackShim);
+        return;
+      }
+
+      navigator.clipboard.writeText(payloadText).then(() => {
+        applyCopyAllFeedback(masterBtn);
+      }).catch(err => {
+        console.error("Extraction matrix failure:", err);
+      });
+    }
+
+    function applyCopyAllFeedback(element) {
+      if(!element) return;
+      const originalLabel = element.textContent;
+      element.textContent = `Copied ${currentUnusedVouchersCache.length} Keys! ✓`;
+      element.className = "btn btn-success btn-sm fw-bold";
+      
+      setTimeout(() => {
+        element.textContent = originalLabel;
+        element.className = "btn btn-dark btn-sm fw-bold";
+      }, 1800);
     }
 
     function copyTokenToClipboard(text, element) {
       if (!navigator.clipboard || !navigator.clipboard.writeText) {
-        // Fallback approach if running inside standalone non-secure frames/webviews
         const inputShim = document.createElement("input");
         inputShim.value = text;
         document.body.appendChild(inputShim);
@@ -660,7 +715,7 @@
     async function renderResultsView(gId, filterCode) {
       const match = globalMatches.find(x => x.game_id === gId);
       if(new Date() < new Date(match.deadline)) {
-        alert("System Lockout: Scoreboard analytics remain classified until match entry conditions close at deadline context parameters.");
+        alert("System Lockout: Scoreboard analytics remain classified until match deadline.");
         return;
       }
 
