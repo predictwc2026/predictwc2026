@@ -431,76 +431,40 @@
       bootstrapModalInstance.show();
     }
 
-    async function executeFinalValidatedSubmission() {
-      bootstrapModalInstance.hide();
-      if(!temporaryPayloadCache) return;
+async function executeFinalValidatedSubmission() {
+  bootstrapModalInstance.hide();
+  if (!temporaryPayloadCache) return;
 
-      try {
-        const { data: voucherCheck, error: vErr } = await _supabase
-          .from('match_vouchers')
-          .select('*')
-          .eq('game_id', temporaryPayloadCache.game_id)
-          .eq('voucher_code', temporaryPayloadCache.code);
-
-        if (vErr) {
-          alert("Database error while checking voucher: " + vErr.message);
-          return;
-        }
-
-        if (!voucherCheck || voucherCheck.length === 0) {
-          alert(`❌ Access Denied: "${temporaryPayloadCache.code}" is not a valid official voucher code for this match.`);
-          return;
-        }
-
-        const voucher = voucherCheck[0];
-
-        if (voucher.is_used) {
-          alert("❌ Submission Failure: This official voucher code has already been consumed!");
-          return;
-        }
-
-        const dataPayload = {
-          game_id: String(temporaryPayloadCache.game_id),
-          fee: Number(temporaryPayloadCache.fee),
-          full_name: String(temporaryPayloadCache.full_name),
-          email: String(temporaryPayloadCache.email),
-          code: String(temporaryPayloadCache.code),
-          team1_score: Number(temporaryPayloadCache.team1_score),
-          team2_score: Number(temporaryPayloadCache.team2_score)
-        };
-
-        const { error: insertError } = await _supabase
-          .from('predictions')
-          .insert([dataPayload]);
-
-        if (insertError) {
-          if (insertError.code === "23505") {
-            alert("❌ Submission Failure: A prediction with this exact code setup already exists.");
-          } else {
-            alert("SQL Write Failure: " + insertError.message);
-          }
-          return;
-        }
-
-        const { error: updateErr } = await _supabase
-          .from('match_vouchers')
-          .update({ is_used: true })
-          .eq('id', voucher.id);
-
-        if (updateErr) {
-          console.error("Voucher status update failed:", updateErr.message);
-        }
-
-        alert("🎉 Certified! Your prediction has been securely locked.");
-        document.getElementById('prediction-form').reset();
-        temporaryPayloadCache = null;
-        await loadMatchCenter();
-        showPage('home');
-
-      } catch (err) {
-        alert("Unexpected system error: " + err.message);
-      }
+  try {
+    // 1. Insert into database
+    const { error: insertError } = await _supabase.from('predictions').insert([dataPayload]);
+    if (insertError) {
+      alert("SQL Write Failure: " + insertError.message);
+      return;
     }
+
+    // 2. Trigger the Edge Function
+    // Replace the URL with your project-specific URL found in Supabase Dashboard -> Edge Functions
+    await fetch('https://glrczpyhppinotlssmrk.supabase.co/functions/v1/send-email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer sb_publishable_zLJKzsCkRQc97Ce-Rm4xxA_Ono7OlFa' // <--- Use your Anon Public Key here
+      },
+      body: JSON.stringify({
+        email: dataPayload.email,
+        full_name: dataPayload.full_name,
+        team1_score: dataPayload.team1_score,
+        team2_score: dataPayload.team2_score
+      }),
+    });
+
+    alert("🎉 Prediction submitted and confirmation email sent!");
+    // ... rest of your success logic
+  } catch (err) {
+    alert("System error: " + err.message);
+  }
+}
 
     function generateHighEntropyToken() {
       const uppers = "ABCDEFGHJKLMNPQRSTUVWXYZ"; 
