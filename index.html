@@ -17,9 +17,10 @@
     .combo-pill { display: inline-block; background-color: #e9ecef; padding: 6px 12px; margin: 4px; border-radius: 20px; font-weight: 600; font-size: 0.9rem; }
     .winner-row { background-color: #fff9e6 !important; }
     .filter-btn { border-radius: 20px; padding: 6px 20px; font-weight: 600; }
-    .stat-card { border-radius: 12px; border: 1px solid #eef2f5; background: #fff; padding: 20px; text-center; box-shadow: 0 4px 10px rgba(0,0,0,0.02); }
+    .stat-card { border-radius: 12px; border: 1px solid #eef2f5; background: #fff; padding: 20px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.02); }
     .stat-val { font-size: 2rem; font-weight: bold; color: #0d6efd; }
     .leaderboard-header { background-color: #2b6cb0 !important; color: white !important; }
+    .countdown-text { color: #dc3545; font-weight: 700; letter-spacing: 0.5px; }
   </style>
 </head>
 <body>
@@ -37,7 +38,6 @@
 
   <div class="container my-4">
     
-    <!-- DASHBOARD VIEW -->
     <div id="page-home" class="page-view">
       <h2 class="mb-4 text-center text-dark fw-bold">Live Match Prediction Center</h2>
       
@@ -54,7 +54,6 @@
       </div>
     </div>
 
-    <!-- PREDICTION SUBMISSION VIEW -->
     <div id="page-predict" class="page-view d-none">
       <button class="btn btn-secondary mb-3" onclick="showPage('home')">← Back to Fixtures</button>
       <div class="card p-4 mx-auto" style="max-width: 600px;">
@@ -92,7 +91,6 @@
       </div>
     </div>
 
-    <!-- GLOBAL LEADERBOARD VIEW (Matches image_fba5e2.png) -->
     <div id="page-leaderboard" class="page-view d-none">
       <div class="text-center mb-2">
         <a href="#" class="text-decoration-none small text-secondary" onclick="showPage('home')">← All Games</a>
@@ -118,7 +116,6 @@
       </div>
     </div>
 
-    <!-- MY PRIVATE PREDICTIONS VIEW -->
     <div id="page-mypredictions" class="page-view d-none">
       <button class="btn btn-secondary mb-3" onclick="showPage('home')">← Back to Fixtures</button>
       <div class="card p-4 mx-auto" style="max-width: 750px;">
@@ -144,7 +141,6 @@
       </div>
     </div>
 
-    <!-- MATCH SPECIFIC RESULTS VIEW -->
     <div id="page-results" class="page-view d-none">
       <button class="btn btn-secondary mb-3" onclick="showPage('home')">← Back to Fixtures</button>
       <div class="card p-4">
@@ -184,7 +180,6 @@
       </div>
     </div>
 
-    <!-- ADMIN PANEL VIEW -->
     <div id="page-admin" class="page-view d-none">
       <button class="btn btn-secondary mb-3" onclick="showPage('home')">← Close Dashboard Panel</button>
       <div class="card p-4 mx-auto" style="max-width: 700px;">
@@ -216,6 +211,7 @@
     let globalMatches = [];
     let activeGameId = "";
     let currentFilterTab = "Open"; 
+    let countdownIntervalId = null;
 
     window.onload = function() { loadMatchCenter(); };
 
@@ -280,6 +276,9 @@
     }
 
     function renderDashboard() {
+      // Clear any running countdown heartbeat intervals first
+      if (countdownIntervalId) clearInterval(countdownIntervalId);
+
       const container = document.getElementById('matches-container');
       container.innerHTML = "";
 
@@ -291,6 +290,11 @@
       }
 
       filtered.forEach(m => {
+        // Create an unique element wrapper ID specifically for tracking this countdown element
+        const countdownSpanHtml = m.status === 'Open' 
+          ? `<div class="text-danger small mb-1">⏳ Closing in: <span class="countdown-text" id="timer-${m.game_id}">--:--:--</span></div>` 
+          : '';
+
         container.innerHTML += `
           <div class="col-md-6 col-lg-4">
             <div class="card p-3">
@@ -310,14 +314,63 @@
                 </div>
               </div>
               <div class="text-muted small mb-1">⏰ Deadline: <b>${m.formattedDeadline} (NPT)</b></div>
+              ${countdownSpanHtml}
               <div class="text-muted small mb-3">📊 Submissions: <b>${m.predictionsCount}</b></div>
               <div class="d-flex gap-2">
-                <button class="btn btn-primary btn-sm flex-fill fw-bold" ${m.status==='Closed'?'disabled':''} onclick="openPredictPage('${m.game_id}')">Apply Now</button>
+                <button class="btn btn-primary btn-sm flex-fill fw-bold" ${m.status==='Closed'?'disabled':''} id="btn-apply-${m.game_id}" onclick="openPredictPage('${m.game_id}')">Apply Now</button>
                 <button class="btn btn-secondary btn-sm flex-fill fw-bold" onclick="openResultsPage('${m.game_id}')">Results</button>
               </div>
             </div>
           </div>`;
       });
+
+      // Start the live ticker heartbeat if there are Open Games visible
+      if (currentFilterTab === 'Open') {
+        startLiveCountdownTicker(filtered);
+      }
+    }
+
+    // COUNTDOWN TIMERS HEARTBEAT ENGINE
+    function startLiveCountdownTicker(openMatches) {
+      function updateAllTimers() {
+        const now = new Date().getTime();
+        let matchesStillOpen = false;
+
+        openMatches.forEach(m => {
+          const targetElement = document.getElementById(`timer-${m.game_id}`);
+          if (!targetElement) return;
+
+          const deadlineTime = new Date(m.deadline).getTime();
+          const distance = deadlineTime - now;
+
+          if (distance < 0) {
+            targetElement.innerHTML = "EXPIRED";
+            const applyBtn = document.getElementById(`btn-apply-${m.game_id}`);
+            if (applyBtn) applyBtn.disabled = true;
+          } else {
+            matchesStillOpen = true;
+            const hours = Math.floor(distance / (1000 * 60 * 60));
+            const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+            // Left pad single digits with zeros for classic stopwatch formatting
+            const displayHours = hours.toString().padStart(2, '0');
+            const displayMinutes = minutes.toString().padStart(2, '0');
+            const displaySeconds = seconds.toString().padStart(2, '0');
+
+            targetElement.innerHTML = `${displayHours}h ${displayMinutes}m ${displaySeconds}s`;
+          }
+        });
+
+        // Optimization: If everything displayed has expired, clear the interval loop
+        if (!matchesStillOpen && countdownIntervalId) {
+          clearInterval(countdownIntervalId);
+        }
+      }
+
+      // Execute right away so there is no 1-second white flash delay, then loop
+      updateAllTimers();
+      countdownIntervalId = setInterval(updateAllTimers, 1000);
     }
 
     function openPredictPage(gId) {
@@ -473,7 +526,7 @@
       showPage('results');
     }
 
-    // FEATURE A: LEADERBOARD CALCULATIONS & AUTHENTICATION
+    // LEADERBOARD CALCULATIONS & AUTHENTICATION
     async function promptLeaderboardAuth() {
       const passCode = prompt("Enter any of your match prediction codes to authenticate and view the leaderboard:");
       if (!passCode) return;
@@ -589,7 +642,7 @@
       showPage('leaderboard');
     }
 
-    // FEATURE B: MY PRIVATE PREDICTIONS VAULT
+    // MY PRIVATE PREDICTIONS VAULT
     function openMyPredictionsPage() {
       document.getElementById('my-vault-code-input').value = "";
       document.getElementById('vault-results-area').classList.add('d-none');
