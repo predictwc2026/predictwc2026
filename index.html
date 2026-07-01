@@ -3,42 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <title>Predict WC 2026</title>
-    </head>
+</head>
 <body>
+    <div id="prediction-form">
+        <input type="text" id="name-input" placeholder="Full Name">
+        <input type="email" id="email-input" placeholder="Email">
+        <input type="number" id="team1" placeholder="Team 1 Score">
+        <input type="number" id="team2" placeholder="Team 2 Score">
+        <button onclick="prepareSubmission()">Submit Prediction</button>
+    </div>
+
     <script type="module">
       import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-      // --- CONFIGURATION ---
       const SUPABASE_URL = 'https://glrczpyhppinotlssmrk.supabase.co';
       const SUPABASE_ANON_KEY = 'sb_publishable_zLJKzsCkRQc97Ce-Rm4xxA_Ono7OlFa';
       const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
       let dataPayload = null;
 
-      // Ensure this is attached to your submit button
       window.prepareSubmission = function() {
-        dataPayload = {
-          email: document.getElementById('email-input')?.value,
-          full_name: document.getElementById('name-input')?.value,
-          team1_score: document.getElementById('team1')?.value,
-          team2_score: document.getElementById('team2')?.value
-        };
-        
-        if (!dataPayload.email || !dataPayload.full_name) {
-          alert("Please fill in all fields.");
-          return;
+        // Now this finds the elements because they are in the HTML above
+        const emailEl = document.getElementById('email-input');
+        const nameEl = document.getElementById('name-input');
+        const t1El = document.getElementById('team1');
+        const t2El = document.getElementById('team2');
+
+        if (!emailEl || !nameEl) {
+            alert("Error: Form elements not found!");
+            return;
         }
 
+        dataPayload = {
+          email: emailEl.value,
+          full_name: nameEl.value,
+          team1_score: t1El.value,
+          team2_score: t2El.value
+        };
+        
         executeFinalValidatedSubmission();
       };
 
       async function executeFinalValidatedSubmission() {
         try {
-          // 1. Insert into Database
           const { error: insertError } = await _supabase.from('predictions').insert([dataPayload]);
           if (insertError) throw new Error("SQL Insert: " + insertError.message);
 
-          // 2. Trigger Edge Function
           const response = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
             method: 'POST',
             headers: {
@@ -53,7 +63,6 @@
           alert("🎉 Prediction submitted and confirmation email sent!");
         } catch (err) {
           alert("System error: " + err.message);
-          console.error(err);
         }
       }
     </script>
