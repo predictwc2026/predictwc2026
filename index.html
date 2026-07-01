@@ -77,11 +77,11 @@
           <div class="row mb-4">
             <div class="col-6">
               <label class="form-label fw-semibold" id="lbl-team1">Team 1 Score</label>
-              <input type="number" class="form-control form-control-lg text-center" id="pred-t1-score" min="0" required>
+              <input type="number" class="form-control form-control-lg text-center" id="pred-t1-score" min="0" step="1" required>
             </div>
             <div class="col-6">
               <label class="form-label fw-semibold" id="lbl-team2">Team 2 Score</label>
-              <input type="number" class="form-control form-control-lg text-center" id="pred-t2-score" min="0" required>
+              <input type="number" class="form-control form-control-lg text-center" id="pred-t2-score" min="0" step="1" required>
             </div>
           </div>
           <button type="submit" class="btn btn-primary w-100 btn-lg fw-bold">Submit Forecast Entry</button>
@@ -386,6 +386,15 @@
 
     function triggerSubmissionConfirmation(e) {
       e.preventDefault();
+      
+      // Strict Integer Enforcement Validation
+      const rawScore1 = document.getElementById('pred-t1-score').value;
+      const rawScore2 = document.getElementById('pred-t2-score').value;
+      if (rawScore1.includes('.') || rawScore2.includes('.')) {
+        alert("❌ Error: Decimal positions are rejected. Enter whole integers only.");
+        return;
+      }
+
       const email = document.getElementById('pred-email').value.trim();
       if(!email.toLowerCase().endsWith('@gmail.com')) {
         document.getElementById('email-error').classList.remove('d-none');
@@ -401,8 +410,8 @@
         full_name: document.getElementById('pred-name').value.trim(),
         email: email,
         code: document.getElementById('pred-code').value.trim(),
-        team1_score: parseInt(document.getElementById('pred-t1-score').value),
-        team2_score: parseInt(document.getElementById('pred-t2-score').value)
+        team1_score: parseInt(rawScore1),
+        team2_score: parseInt(rawScore2)
       };
 
       document.getElementById('conf-match-title').innerText = `${match.team1} vs ${match.team2}`;
@@ -420,6 +429,7 @@
       if(!temporaryPayloadCache) return;
 
       try {
+        // Explicit exact string matching validation
         const { data: voucherCheck, error: vErr } = await _supabase
           .from('match_vouchers')
           .select('*')
@@ -443,13 +453,24 @@
           return;
         }
 
+        // Fixed data typing block parameters
+        const dataPayload = {
+          game_id: String(temporaryPayloadCache.game_id),
+          fee: Number(temporaryPayloadCache.fee),
+          full_name: String(temporaryPayloadCache.full_name),
+          email: String(temporaryPayloadCache.email),
+          code: String(temporaryPayloadCache.code),
+          team1_score: Number(temporaryPayloadCache.team1_score),
+          team2_score: Number(temporaryPayloadCache.team2_score)
+        };
+
         const { error: insertError } = await _supabase
           .from('predictions')
-          .insert([temporaryPayloadCache]);
+          .insert([dataPayload]);
 
         if (insertError) {
           if (insertError.code === "23505") {
-            alert("❌ Submission Failure: A prediction with this code setup already exists.");
+            alert("❌ Submission Failure: A prediction with this exact code setup already exists.");
           } else {
             alert("SQL Write Failure: " + insertError.message);
           }
