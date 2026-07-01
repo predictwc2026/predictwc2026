@@ -110,7 +110,6 @@
   </div>
 
   <script>
-    // --- STEP 2 CONFIGURATION ---
     const SUPABASE_URL = "https://glrczpyhppinotlssmrk.supabase.co"; 
     const SUPABASE_ANON_KEY = "sb_publishable_zLJKzsCkRQc97Ce-Rm4xxA_Ono7OlFa";
     
@@ -128,7 +127,6 @@
 
 async function loadMatchCenter() {
   const { data: matches, error: mErr } = await _supabase.from('matches').select('*');
-  const { data: preds, error: pErr } = await _supabase.from('predictions').select('game_id');
   
   if (mErr) { 
     console.error("Supabase Error:", mErr); 
@@ -136,16 +134,8 @@ async function loadMatchCenter() {
     return; 
   }
 
-  let counts = {};
-  if (preds) {
-    preds.forEach(p => { counts[p.game_id] = (counts[p.game_id] || 0) + 1; });
-  }
-
   globalMatches = (matches || []).map(m => {
-    // Force browser to parse the timestamp properly
     const deadlineDate = new Date(m.deadline);
-    
-    // Fallback safe formatting string if toLocaleString fails
     let formattedDeadline = m.deadline; 
     try {
       const options = { timeZone: 'Asia/Kathmandu', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true };
@@ -161,7 +151,7 @@ async function loadMatchCenter() {
       ...m,
       status: status,
       formattedDeadline: formattedDeadline,
-      predictionsCount: counts[m.game_id] || 0,
+      predictionsCount: "Active", // Masked layout counter for security integrity
       flag1: `https://openflags.net/flag/${encodeURIComponent(m.team1.trim().toLowerCase())}.png`,
       flag2: `https://openflags.net/flag/${encodeURIComponent(m.team2.trim().toLowerCase())}.png`
     };
@@ -239,11 +229,9 @@ async function handlePredictSubmit(e) {
     team2_score: parseInt(document.getElementById('pred-t2-score').value)
   };
 
-  // Execute submission with detailed server response processing
   const { data, error } = await _supabase.from('predictions').insert([payload]);
 
   if(error) {
-    // This captures the server-side deadline exception perfectly
     alert("Submission Error: " + error.message);
   } else {
     alert("Prediction securely configured and locked on cloud servers!");
@@ -273,39 +261,33 @@ async function handlePredictSubmit(e) {
         return;
       }
 
-      // Fetch predictions matching the current Match Game ID
-      const { data: preds, error } = await _supabase.from('predictions').select('*').eq('game_id', gId);
-      if(error) return;
+      // Secure Query Strategy: If no filterCode is entered, fetch nothing to maintain absolute network isolation.
+      let preds = [];
+      if (filterCode && filterCode.trim() !== "") {
+        const { data, error } = await _supabase.from('predictions').select('*').eq('game_id', gId).eq('code', filterCode);
+        if(!error && data) preds = data;
+      }
 
-      let scoreComboMap = {};
-      preds.forEach(p => {
-        let key = `${p.team1_score}-${p.team2_score}`;
-        scoreComboMap[key] = (scoreComboMap[key] || 0) + 1;
-      });
-
-      let soloCount = 0;
       const tbody = document.getElementById('results-table-body');
       tbody.innerHTML = "";
 
-      preds.forEach(p => {
-        let comboKey = `${p.team1_score}-${p.team2_score}`;
-        if(scoreComboMap[comboKey] === 1) soloCount++;
-
-        // Show configuration if user inputs matching authorization validation code
-        let isCodeMatch = String(p.code) === String(filterCode);
-        let displayScore = isCodeMatch ? `${p.team1_score} - ${p.team2_score}` : "🔒 Protected (Enter Matching Entry Code)";
-
-        tbody.innerHTML += `
-          <tr>
-            <td class="fw-semibold">${p.full_name}</td>
-            <td><span class="badge ${isCodeMatch?'bg-success':'bg-dark'}">${displayScore}</span></td>
-          </tr>`;
-      });
+      if (preds.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="2" class="text-center text-muted">No verified configurations found for this decryption parameters.</td></tr>`;
+        document.getElementById('res-total').innerText = "0";
+        document.getElementById('res-solo').innerText = "0";
+      } else {
+        preds.forEach(p => {
+          tbody.innerHTML += `
+            <tr>
+              <td class="fw-semibold">${p.full_name}</td>
+              <td><span class="badge bg-success">${p.team1_score} - ${p.team2_score}</span></td>
+            </tr>`;
+        });
+        document.getElementById('res-total').innerText = preds.length;
+        document.getElementById('res-solo').innerText = "Verified";
+      }
 
       document.getElementById('res-title').innerText = `Results Log: ${match.team1} vs ${match.team2}`;
-      document.getElementById('res-total').innerText = preds.length;
-      document.getElementById('res-solo').innerText = soloCount;
-
       showPage('results');
     }
   </script>
