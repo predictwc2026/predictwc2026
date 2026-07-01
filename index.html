@@ -1,60 +1,61 @@
-<script type="module">
-  import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Predict WC 2026</title>
+    </head>
+<body>
+    <script type="module">
+      import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-  // --- CONFIGURATION ---
-  const SUPABASE_URL = 'https://glrczpyhppinotlssmrk.supabase.co'; // Replace with your URL
-  const SUPABASE_ANON_KEY = 'sb_publishable_zLJKzsCkRQc97Ce-Rm4xxA_Ono7OlFa';          // Replace with your Key
-  const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      // --- CONFIGURATION ---
+      const SUPABASE_URL = 'https://glrczpyhppinotlssmrk.supabase.co';
+      const SUPABASE_ANON_KEY = 'sb_publishable_zLJKzsCkRQc97Ce-Rm4xxA_Ono7OlFa';
+      const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  // Global variable to store data between form and submission
-  let dataPayload = null;
+      let dataPayload = null;
 
-  // --- 1. CAPTURE DATA (Call this when user clicks Submit in the modal) ---
-  window.prepareSubmission = function() {
-    dataPayload = {
-      email: document.getElementById('email-input').value,
-      full_name: document.getElementById('name-input').value,
-      team1_score: document.getElementById('team1').value,
-      team2_score: document.getElementById('team2').value
-    };
-    
-    // Proceed to the final step
-    executeFinalValidatedSubmission();
-  };
+      // Ensure this is attached to your submit button
+      window.prepareSubmission = function() {
+        dataPayload = {
+          email: document.getElementById('email-input')?.value,
+          full_name: document.getElementById('name-input')?.value,
+          team1_score: document.getElementById('team1')?.value,
+          team2_score: document.getElementById('team2')?.value
+        };
+        
+        if (!dataPayload.email || !dataPayload.full_name) {
+          alert("Please fill in all fields.");
+          return;
+        }
 
-  // --- 2. EXECUTE SUBMISSION ---
-  async function executeFinalValidatedSubmission() {
-    // Hide modal if it exists
-    if (typeof bootstrapModalInstance !== 'undefined') {
-      bootstrapModalInstance.hide();
-    }
+        executeFinalValidatedSubmission();
+      };
 
-    if (!dataPayload) {
-      alert("Error: Data not captured.");
-      return;
-    }
+      async function executeFinalValidatedSubmission() {
+        try {
+          // 1. Insert into Database
+          const { error: insertError } = await _supabase.from('predictions').insert([dataPayload]);
+          if (insertError) throw new Error("SQL Insert: " + insertError.message);
 
-    try {
-      // A. Insert into Database
-      const { error: insertError } = await _supabase.from('predictions').insert([dataPayload]);
-      if (insertError) throw new Error("SQL Insert: " + insertError.message);
+          // 2. Trigger Edge Function
+          const response = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            },
+            body: JSON.stringify(dataPayload),
+          });
 
-      // B. Trigger Edge Function
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-        },
-        body: JSON.stringify(dataPayload),
-      });
+          if (!response.ok) throw new Error("Email function failed");
 
-      if (!response.ok) throw new Error("Email function failed");
-
-      alert("🎉 Prediction submitted and confirmation email sent!");
-    } catch (err) {
-      alert("System error: " + err.message);
-      console.error(err);
-    }
-  }
-</script>
+          alert("🎉 Prediction submitted and confirmation email sent!");
+        } catch (err) {
+          alert("System error: " + err.message);
+          console.error(err);
+        }
+      }
+    </script>
+</body>
+</html>
