@@ -16,6 +16,7 @@
     .score-badge { background-color: #e9ecef; color: #333; font-size: 1.25rem; font-weight: bold; padding: 5px 15px; border-radius: 8px; }
     .combo-pill { display: inline-block; background-color: #e9ecef; padding: 6px 12px; margin: 4px; border-radius: 20px; font-weight: 600; font-size: 0.9rem; }
     .winner-row { background-color: #fff9e6 !important; }
+    .filter-btn { border-radius: 20px; padding: 6px 20px; font-weight: 600; }
   </style>
 </head>
 <body>
@@ -30,6 +31,12 @@
     
     <div id="page-home" class="page-view">
       <h2 class="mb-4 text-center text-dark fw-bold">Live Match Prediction Center</h2>
+      
+      <div class="d-flex justify-content-center gap-2 mb-4">
+        <button id="btn-filter-open" class="btn btn-primary filter-btn" onclick="setMatchFilter('Open')">Open Games</button>
+        <button id="btn-filter-closed" class="btn btn-outline-secondary filter-btn" onclick="setMatchFilter('Closed')">Closed Games</button>
+      </div>
+
       <div id="matches-container" class="row">
         <div class="text-center col-12">
           <div class="spinner-border text-primary" role="status"></div>
@@ -114,16 +121,38 @@
       </div>
     </div>
 
+    <div id="page-admin" class="page-view d-none">
+      <button class="btn btn-secondary mb-3" onclick="showPage('home')">← Close Dashboard Panel</button>
+      <div class="card p-4 mx-auto" style="max-width: 700px;">
+        <h3 class="fw-bold text-danger mb-4">🛡️ Match Official Dashboard Terminal</h3>
+        <p class="text-muted">Select an expired fixture to log final official goals and update parameters.</p>
+        <div class="table-responsive">
+          <table class="table align-middle border">
+            <thead class="table-dark">
+              <tr><th>Match Details</th><th>Enter Scores</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="admin-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
   </div>
+
+  <footer class="text-center my-5 text-muted">
+    <small><a href="#" class="text-decoration-none text-secondary" onclick="triggerAdminAuth()">🛠️ Open Admin Panel</a></small>
+  </footer>
 
   <script>
     const SUPABASE_URL = "https://glrczpyhppinotlssmrk.supabase.co"; 
     const SUPABASE_ANON_KEY = "sb_publishable_zLJKzsCkRQc97Ce-Rm4xxA_Ono7OlFa";
+    const ADMIN_PASS_PIN = "1234"; // 👈 Access Pin code to log scores on the front-end
     
     const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     let globalMatches = [];
     let activeGameId = "";
+    let currentFilterTab = "Open"; // Tracks current dashboard state context filter
 
     window.onload = function() { loadMatchCenter(); };
 
@@ -132,13 +161,30 @@
       document.getElementById('page-' + pageId).classList.remove('d-none');
     }
 
+    function setMatchFilter(status) {
+      currentFilterTab = status;
+      document.getElementById('btn-filter-open').className = status === 'Open' ? 'btn btn-primary filter-btn' : 'btn btn-outline-secondary filter-btn';
+      document.getElementById('btn-filter-closed').className = status === 'Closed' ? 'btn btn-secondary filter-btn' : 'btn btn-outline-secondary filter-btn';
+      renderDashboard();
+    }
+
+    // Maps clean flags dynamically from open-source repos
+    function getFlagUrl(countryName) {
+      const cleanName = countryName.trim().toLowerCase();
+      const flagMapping = {
+        "nepal": "np", "india": "in", "portugal": "pt", "brazil": "br", "argentina": "ar", 
+        "france": "fr", "spain": "es", "germany": "de", "england": "gb-eng", "croatia": "hr"
+      };
+      const code = flagMapping[cleanName] || cleanName.substring(0,2);
+      return `https://flagcdn.com/w40/${code}.png`;
+    }
+
     async function loadMatchCenter() {
       const { data: matches, error: mErr } = await _supabase.from('matches').select('*');
       const { data: preds, error: pErr } = await _supabase.from('predictions').select('game_id');
       
       if (mErr) { 
         console.error("Supabase Error:", mErr); 
-        alert("Database sync error!"); 
         return; 
       }
 
@@ -153,9 +199,7 @@
         try {
           const options = { timeZone: 'Asia/Kathmandu', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true };
           formattedDeadline = deadlineDate.toLocaleString('en-US', options);
-        } catch(e) {
-          console.error("Date formatting error:", e);
-        }
+        } catch(e) { console.error(e); }
         
         const now = new Date();
         const status = (now > deadlineDate) ? "Closed" : "Open";
@@ -165,8 +209,8 @@
           status: status,
           formattedDeadline: formattedDeadline,
           predictionsCount: counts[m.game_id] || 0,
-          flag1: `https://openflags.net/flag/${encodeURIComponent(m.team1.trim().toLowerCase())}.png`,
-          flag2: `https://openflags.net/flag/${encodeURIComponent(m.team2.trim().toLowerCase())}.png`
+          flag1: getFlagUrl(m.team1),
+          flag2: getFlagUrl(m.team2)
         };
       });
 
@@ -177,12 +221,14 @@
       const container = document.getElementById('matches-container');
       container.innerHTML = "";
 
-      if(globalMatches.length === 0) {
-        container.innerHTML = `<div class="col-12 text-center text-muted p-5"><h5>No fixtures active at this moment.</h5></div>`;
+      const filtered = globalMatches.filter(m => m.status === currentFilterTab);
+
+      if(filtered.length === 0) {
+        container.innerHTML = `<div class="col-12 text-center text-muted p-5"><h5>No matching ${currentFilterTab.toLowerCase()} fixtures cataloged.</h5></div>`;
         return;
       }
 
-      globalMatches.forEach(m => {
+      filtered.forEach(m => {
         container.innerHTML += `
           <div class="col-md-6 col-lg-4">
             <div class="card p-3">
@@ -192,12 +238,12 @@
               </div>
               <div class="d-flex align-items-center justify-content-between my-3 text-center">
                 <div style="width:40%;">
-                  <img src="${m.flag1}" onerror="this.src='https://placehold.co/45x30?text=🏆'" class="flag-img mb-1"><br>
+                  <img src="${m.flag1}" onerror="this.src='https://placehold.co/45x30?text=⚽'" class="flag-img mb-1"><br>
                   <span class="fw-bold small d-block text-truncate">${m.team1}</span>
                 </div>
                 <div style="width:20%;"><span class="score-badge">${m.team1_score !== null ? m.team1_score : '-'} : ${m.team2_score !== null ? m.team2_score : '-'}</span></div>
                 <div style="width:40%;">
-                  <img src="${m.flag2}" onerror="this.src='https://placehold.co/45x30?text=🏆'" class="flag-img mb-1"><br>
+                  <img src="${m.flag2}" onerror="this.src='https://placehold.co/45x30?text=⚽'" class="flag-img mb-1"><br>
                   <span class="fw-bold small d-block text-truncate">${m.team2}</span>
                 </div>
               </div>
@@ -291,7 +337,6 @@
         return;
       }
 
-      // Step 1: Verify code ownership
       const { data: verificationCheck, error: vError } = await _supabase
         .from('predictions')
         .select('id')
@@ -307,32 +352,25 @@
         return;
       }
 
-      // Step 2: Fetch all predictions
       const { data: allPreds, error: fetchError } = await _supabase
         .from('predictions')
         .select('*')
         .eq('game_id', gId);
 
-      if (fetchError || !allPreds) {
-        alert("Error loading tournament ledger configuration.");
-        return;
-      }
+      if (fetchError || !allPreds) { return; }
 
-      // Map score frequencies
       let scoreComboMap = {};
       allPreds.forEach(p => {
         let key = `${p.team1_score}-${p.team2_score}`;
         scoreComboMap[key] = (scoreComboMap[key] || 0) + 1;
       });
 
-      // Render the breakdown section
       summarySection.classList.remove('d-none');
       Object.keys(scoreComboMap).forEach(key => {
         let count = scoreComboMap[key];
         pillsContainer.innerHTML += `<span class="combo-pill">${key}: ${count} ${count === 1 ? 'prediction' : 'predictions'}</span>`;
       });
 
-      // Calculate payouts if match results are posted
       let finalScoreKey = (match.team1_score !== null && match.team2_score !== null) ? `${match.team1_score}-${match.team2_score}` : null;
       let matchingPredictionsCount = finalScoreKey ? (scoreComboMap[finalScoreKey] || 0) : 0;
       
@@ -344,7 +382,6 @@
 
       let soloCount = 0;
 
-      // Map rows with win status so we can sort them
       let processedPreds = allPreds.map(p => {
         let comboKey = `${p.team1_score}-${p.team2_score}`;
         if(scoreComboMap[comboKey] === 1) soloCount++;
@@ -353,18 +390,11 @@
         let payoutValue = isWinner ? calculatedPayout : 0;
         let displayName = isWinner ? `🏆 ${p.full_name}` : p.full_name;
 
-        return {
-          ...p,
-          displayName: displayName,
-          payoutValue: payoutValue,
-          isWinner: isWinner
-        };
+        return { ...p, displayName: displayName, payoutValue: payoutValue, isWinner: isWinner };
       });
 
-      // Sort predictions: Winners go to the top (true first, then false)
       processedPreds.sort((a, b) => (b.isWinner - a.isWinner));
 
-      // Render sorted rows to the UI
       processedPreds.forEach(p => {
         tbody.innerHTML += `
           <tr class="${p.isWinner ? 'winner-row' : ''}">
@@ -379,6 +409,68 @@
       document.getElementById('res-solo').innerText = soloCount;
 
       showPage('results');
+    }
+
+    // FRONTEND ADMIN MODULE CONTROLLERS
+    function triggerAdminAuth() {
+      const pin = prompt("Enter administrative authentication credential passcode:");
+      if (pin === ADMIN_PASS_PIN) {
+        renderAdminDashboard();
+        showPage('admin');
+      } else if (pin !== null) {
+        alert("Invalid access authorization keys.");
+      }
+    }
+
+    function renderAdminDashboard() {
+      const tbody = document.getElementById('admin-table-body');
+      tbody.innerHTML = "";
+
+      globalMatches.forEach(m => {
+        tbody.innerHTML += `
+          <tr>
+            <td>
+              <div class="fw-bold small">${m.team1} vs ${m.team2}</div>
+              <small class="text-muted d-block">ID: ${m.game_id}</small>
+            </td>
+            <td>
+              <div class="d-flex gap-1 align-items-center">
+                <input type="number" id="adm-t1-${m.game_id}" class="form-control form-control-sm text-center" style="width:60px;" value="${m.team1_score !== null ? m.team1_score : ''}" placeholder="-">
+                <span>:</span>
+                <input type="number" id="adm-t2-${m.game_id}" class="form-control form-control-sm text-center" style="width:60px;" value="${m.team2_score !== null ? m.team2_score : ''}" placeholder="-">
+              </div>
+            </td>
+            <td>
+              <button class="btn btn-danger btn-sm fw-bold" onclick="commitScoreFromFrontend('${m.game_id}')">Update</button>
+            </td>
+          </tr>`;
+      });
+    }
+
+    async function commitScoreFromFrontend(gId) {
+      const t1Val = document.getElementById(`adm-t1-${gId}`).value;
+      const t2Val = document.getElementById(`adm-t2-${gId}`).value;
+
+      if (t1Val === "" || t2Val === "") {
+        alert("Fields cannot remain unconfigured or blank.");
+        return;
+      }
+
+      const score1 = parseInt(t1Val);
+      const score2 = parseInt(t2Val);
+
+      const { data, error } = await _supabase
+        .from('matches')
+        .update({ team1_score: score1, team2_score: score2 })
+        .eq('game_id', gId);
+
+      if (error) {
+        alert("Server write failure: " + error.message);
+      } else {
+        alert("Scores submitted successfully! Payout values updated.");
+        await loadMatchCenter();
+        renderAdminDashboard();
+      }
     }
   </script>
 </body>
