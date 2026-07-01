@@ -14,6 +14,7 @@
     .badge-open { background-color: #28a745; }
     .badge-closed { background-color: #dc3545; }
     .score-badge { background-color: #e9ecef; color: #333; font-size: 1.25rem; font-weight: bold; padding: 5px 15px; border-radius: 8px; }
+    .combo-pill { display: inline-block; background-color: #e9ecef; padding: 6px 12px; margin: 4px; border-radius: 20px; font-weight: 600; font-size: 0.9rem; }
   </style>
 </head>
 <body>
@@ -80,13 +81,13 @@
         
         <div class="row my-4 text-center">
           <div class="col-md-6 mb-2">
-            <div class="p-3 bg-light border rounded"><h6>Total System Predictions</h6><h2 id="res-total" class="fw-bold text-primary">0</h2></div>
+            <div class="p-3 bg-light border rounded"><h6>No Of Predictions</h6><h2 id="res-total" class="fw-bold text-primary">0</h2></div>
           </div>
           <div class="col-md-6 mb-2">
             <div class="p-3 bg-light border rounded"><h6>Solo Unique Predictions</h6><h2 id="res-solo" class="fw-bold text-warning">0</h2></div>
           </div>
         </div>
-        
+
         <div class="mb-4 p-3 bg-light rounded border">
           <label class="form-label fw-bold text-secondary">Unlock Forecast Board Entries:</label>
           <div class="input-group">
@@ -95,11 +96,16 @@
           </div>
         </div>
 
-        <h5 class="fw-bold mt-4">Applicant Forecast Log Matrix</h5>
+        <div id="summary-combinations-section" class="mb-4 p-3 border rounded d-none" style="background-color: #fafbfc;">
+          <h6 class="fw-bold text-secondary mb-2">Prediction Summary Breakdown</h6>
+          <div id="combination-pills-container"></div>
+        </div>
+
+        <h5 class="fw-bold mt-4">Full List</h5>
         <div class="table-responsive">
           <table class="table table-striped align-middle">
             <thead>
-              <tr><th>Applicant Name</th><th>Forecast Configuration</th></tr>
+              <tr><th>Applicant Name</th><th>Prediction</th><th>Payout (NPR)</th></tr>
             </thead>
             <tbody id="results-table-body"></tbody>
           </table>
@@ -125,40 +131,46 @@
       document.getElementById('page-' + pageId).classList.remove('d-none');
     }
 
-async function loadMatchCenter() {
-  const { data: matches, error: mErr } = await _supabase.from('matches').select('*');
-  
-  if (mErr) { 
-    console.error("Supabase Error:", mErr); 
-    alert("Database sync error!"); 
-    return; 
-  }
+    async function loadMatchCenter() {
+      const { data: matches, error: mErr } = await _supabase.from('matches').select('*');
+      const { data: preds, error: pErr } = await _supabase.from('predictions').select('game_id');
+      
+      if (mErr) { 
+        console.error("Supabase Error:", mErr); 
+        alert("Database sync error!"); 
+        return; 
+      }
 
-  globalMatches = (matches || []).map(m => {
-    const deadlineDate = new Date(m.deadline);
-    let formattedDeadline = m.deadline; 
-    try {
-      const options = { timeZone: 'Asia/Kathmandu', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true };
-      formattedDeadline = deadlineDate.toLocaleString('en-US', options);
-    } catch(e) {
-      console.error("Date formatting error:", e);
+      let counts = {};
+      if (preds) {
+        preds.forEach(p => { counts[p.game_id] = (counts[p.game_id] || 0) + 1; });
+      }
+
+      globalMatches = (matches || []).map(m => {
+        const deadlineDate = new Date(m.deadline);
+        let formattedDeadline = m.deadline; 
+        try {
+          const options = { timeZone: 'Asia/Kathmandu', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true };
+          formattedDeadline = deadlineDate.toLocaleString('en-US', options);
+        } catch(e) {
+          console.error("Date formatting error:", e);
+        }
+        
+        const now = new Date();
+        const status = (now > deadlineDate) ? "Closed" : "Open";
+
+        return {
+          ...m,
+          status: status,
+          formattedDeadline: formattedDeadline,
+          predictionsCount: counts[m.game_id] || 0,
+          flag1: `https://openflags.net/flag/${encodeURIComponent(m.team1.trim().toLowerCase())}.png`,
+          flag2: `https://openflags.net/flag/${encodeURIComponent(m.team2.trim().toLowerCase())}.png`
+        };
+      });
+
+      renderDashboard();
     }
-    
-    const now = new Date();
-    const status = (now > deadlineDate) ? "Closed" : "Open";
-
-    return {
-      ...m,
-      status: status,
-      formattedDeadline: formattedDeadline,
-      predictionsCount: "Active", // Masked layout counter for security integrity
-      flag1: `https://openflags.net/flag/${encodeURIComponent(m.team1.trim().toLowerCase())}.png`,
-      flag2: `https://openflags.net/flag/${encodeURIComponent(m.team2.trim().toLowerCase())}.png`
-    };
-  });
-
-  renderDashboard();
-}
 
     function renderDashboard() {
       const container = document.getElementById('matches-container');
@@ -182,7 +194,7 @@ async function loadMatchCenter() {
                   <img src="${m.flag1}" onerror="this.src='https://placehold.co/45x30?text=🏆'" class="flag-img mb-1"><br>
                   <span class="fw-bold small d-block text-truncate">${m.team1}</span>
                 </div>
-                <div style="width:20%;"><span class="score-badge">${m.team1_score} : ${m.team2_score}</span></div>
+                <div style="width:20%;"><span class="score-badge">${m.team1_score !== null ? m.team1_score : '-'} : ${m.team2_score !== null ? m.team2_score : '-'}</span></div>
                 <div style="width:40%;">
                   <img src="${m.flag2}" onerror="this.src='https://placehold.co/45x30?text=🏆'" class="flag-img mb-1"><br>
                   <span class="fw-bold small d-block text-truncate">${m.team2}</span>
@@ -210,36 +222,36 @@ async function loadMatchCenter() {
       showPage('predict');
     }
 
-async function handlePredictSubmit(e) {
-  e.preventDefault();
-  const email = document.getElementById('pred-email').value;
-  if(!email.toLowerCase().endsWith('@gmail.com')) {
-    document.getElementById('email-error').classList.remove('d-none');
-    return;
-  }
-  document.getElementById('email-error').classList.add('d-none');
+    async function handlePredictSubmit(e) {
+      e.preventDefault();
+      const email = document.getElementById('pred-email').value;
+      if(!email.toLowerCase().endsWith('@gmail.com')) {
+        document.getElementById('email-error').classList.remove('d-none');
+        return;
+      }
+      document.getElementById('email-error').classList.add('d-none');
 
-  const payload = {
-    game_id: document.getElementById('pred-gameId').value,
-    fee: parseFloat(document.getElementById('pred-fee').value),
-    full_name: document.getElementById('pred-name').value,
-    email: email,
-    code: document.getElementById('pred-code').value,
-    team1_score: parseInt(document.getElementById('pred-t1-score').value),
-    team2_score: parseInt(document.getElementById('pred-t2-score').value)
-  };
+      const payload = {
+        game_id: document.getElementById('pred-gameId').value,
+        fee: parseFloat(document.getElementById('pred-fee').value),
+        full_name: document.getElementById('pred-name').value,
+        email: email,
+        code: document.getElementById('pred-code').value,
+        team1_score: parseInt(document.getElementById('pred-t1-score').value),
+        team2_score: parseInt(document.getElementById('pred-t2-score').value)
+      };
 
-  const { data, error } = await _supabase.from('predictions').insert([payload]);
+      const { data, error } = await _supabase.from('predictions').insert([payload]);
 
-  if(error) {
-    alert("Submission Error: " + error.message);
-  } else {
-    alert("Prediction securely configured and locked on cloud servers!");
-    document.getElementById('prediction-form').reset();
-    await loadMatchCenter();
-    showPage('home');
-  }
-}
+      if(error) {
+        alert("Submission Error: " + error.message);
+      } else {
+        alert("Prediction securely configured and locked on cloud servers!");
+        document.getElementById('prediction-form').reset();
+        await loadMatchCenter();
+        showPage('home');
+      }
+    }
 
     function openResultsPage(gId) {
       activeGameId = gId;
@@ -251,7 +263,7 @@ async function handlePredictSubmit(e) {
       renderResultsView(activeGameId, document.getElementById('verify-code-input').value);
     }
 
-async function renderResultsView(gId, filterCode) {
+    async function renderResultsView(gId, filterCode) {
       const match = globalMatches.find(x => x.game_id === gId);
       const now = new Date();
       const deadlinePassed = now > new Date(match.deadline);
@@ -262,11 +274,15 @@ async function renderResultsView(gId, filterCode) {
       }
 
       const tbody = document.getElementById('results-table-body');
+      const pillsContainer = document.getElementById('combination-pills-container');
+      const summarySection = document.getElementById('summary-combinations-section');
+      
       tbody.innerHTML = "";
+      pillsContainer.innerHTML = "";
+      summarySection.classList.add('d-none');
 
-      // 1. If no code has been entered yet, show an explicit prompt to unlock
       if (!filterCode || filterCode.trim() === "") {
-        tbody.innerHTML = `<tr><td colspan="2" class="text-center text-muted">🔒 Please enter your secret submission code above to unlock the leaderboard.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="3" class="text-center text-muted">🔒 Please enter your secret submission code above to unlock the leaderboard.</td></tr>`;
         document.getElementById('res-total').innerText = "0";
         document.getElementById('res-solo').innerText = "Locked";
         document.getElementById('res-title').innerText = `Results Log: ${match.team1} vs ${match.team2}`;
@@ -274,7 +290,7 @@ async function renderResultsView(gId, filterCode) {
         return;
       }
 
-      // 2. Step 1: Verify if the typed code belongs to a valid applicant for this match
+      // Step 1: Verify code ownership
       const { data: verificationCheck, error: vError } = await _supabase
         .from('predictions')
         .select('id')
@@ -284,13 +300,13 @@ async function renderResultsView(gId, filterCode) {
 
       if (vError || !verificationCheck || verificationCheck.length === 0) {
         alert("Invalid Secret Code: You must provide a valid code used during submission for this match to unlock the log.");
-        tbody.innerHTML = `<tr><td colspan="2" class="text-center text-danger">⚠️ Access Denied. Invalid entry code parameters.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="3" class="text-center text-danger">⚠️ Access Denied. Invalid entry code parameters.</td></tr>`;
         document.getElementById('res-total').innerText = "0";
         document.getElementById('res-solo').innerText = "Unauthorized";
         return;
       }
 
-      // 3. Step 2: Since the code is verified, fetch ALL predictions for this match layout
+      // Step 2: Fetch all predictions
       const { data: allPreds, error: fetchError } = await _supabase
         .from('predictions')
         .select('*')
@@ -301,28 +317,50 @@ async function renderResultsView(gId, filterCode) {
         return;
       }
 
-      // 4. Calculate true score combination mapping for "Solo Unique Predictions"
+      // Map score frequencies
       let scoreComboMap = {};
       allPreds.forEach(p => {
         let key = `${p.team1_score}-${p.team2_score}`;
         scoreComboMap[key] = (scoreComboMap[key] || 0) + 1;
       });
 
+      // Render the breakdown section
+      summarySection.classList.remove('d-none');
+      Object.keys(scoreComboMap).forEach(key => {
+        let count = scoreComboMap[key];
+        pillsContainer.innerHTML += `<span class="combo-pill">${key}: ${count} ${count === 1 ? 'prediction' : 'predictions'}</span>`;
+      });
+
+      // Calculate payouts if match results are posted
+      let finalScoreKey = (match.team1_score !== null && match.team2_score !== null) ? `${match.team1_score}-${match.team2_score}` : null;
+      let matchingPredictionsCount = finalScoreKey ? (scoreComboMap[finalScoreKey] || 0) : 0;
+      
+      let calculatedPayout = 0;
+      if (finalScoreKey && matchingPredictionsCount > 0) {
+        calculatedPayout = (allPreds.length * match.fee) / matchingPredictionsCount;
+        calculatedPayout = Math.round(calculatedPayout * 100) / 100; // Round to 2 decimal places
+      }
+
       let soloCount = 0;
 
-      // 5. Render every single participant's entries onto the board
+      // Render rows
       allPreds.forEach(p => {
         let comboKey = `${p.team1_score}-${p.team2_score}`;
         if(scoreComboMap[comboKey] === 1) soloCount++;
+
+        let payoutValue = 0;
+        if (finalScoreKey && comboKey === finalScoreKey) {
+          payoutValue = calculatedPayout;
+        }
 
         tbody.innerHTML += `
           <tr>
             <td class="fw-semibold">${p.full_name}</td>
             <td><span class="badge bg-success">${p.team1_score} - ${p.team2_score}</span></td>
+            <td class="fw-bold ${payoutValue > 0 ? 'text-success' : 'text-muted'}">NPR ${payoutValue}</td>
           </tr>`;
       });
 
-      // 6. Update the metrics counters with live totals
       document.getElementById('res-title').innerText = `Results Log: ${match.team1} vs ${match.team2}`;
       document.getElementById('res-total').innerText = allPreds.length;
       document.getElementById('res-solo').innerText = soloCount;
