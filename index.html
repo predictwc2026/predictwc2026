@@ -141,7 +141,7 @@
           <div class="col-md-6 mb-2"><div class="p-3 bg-light border rounded"><h6>No Of Predictions</h6><h2 id="res-total" class="fw-bold text-primary">0</h2></div></div>
           <div class="col-md-6 mb-2"><div class="p-3 bg-light border rounded"><h6>Solo Unique Predictions</h6><h2 id="res-solo" class="fw-bold text-warning">0</h2></div></div>
         </div>
-        <div class="mb-4 p-3 bg-light rounded border">
+        <div id="results-code-box" class="mb-4 p-3 bg-light rounded border">
           <label class="form-label fw-bold text-secondary">Unlock Forecast Board Entries:</label>
           <div class="input-group">
             <input type="text" id="verify-code-input" class="form-control" placeholder="Enter your passcode">
@@ -247,6 +247,7 @@
     let temporaryPayloadCache = null;
     let pendingDraftVouchersArray = [];
     let currentUnusedVouchersCache = [];
+    let isAdminAuthenticated = false;
 
     window.onload = function() { 
       loadMatchCenter(); 
@@ -714,7 +715,10 @@
 
     async function renderResultsView(gId, filterCode) {
       const match = globalMatches.find(x => x.game_id === gId);
-      if(new Date() < new Date(match.deadline)) {
+      const beforeDeadline = new Date() < new Date(match.deadline);
+
+      // Only non-admins are locked out before the deadline. Admin can always view.
+      if (!isAdminAuthenticated && beforeDeadline) {
         alert("System Lockout: Scoreboard analytics remain classified until match deadline.");
         return;
       }
@@ -722,10 +726,14 @@
       const tbody = document.getElementById('results-table-body');
       const pillsContainer = document.getElementById('combination-pills-container');
       const summarySection = document.getElementById('summary-combinations-section');
-      
+      const codeBox = document.getElementById('results-code-box');
+
       tbody.innerHTML = ""; pillsContainer.innerHTML = ""; summarySection.classList.add('d-none');
 
-      if (!filterCode || filterCode.trim() === "") {
+      // Admin doesn't need a voucher code to unlock — they're already authenticated.
+      if (codeBox) codeBox.classList.toggle('d-none', isAdminAuthenticated);
+
+      if (!isAdminAuthenticated && (!filterCode || filterCode.trim() === "")) {
         tbody.innerHTML = `<tr><td colspan="3" class="text-center text-muted">🔒 Please enter your assignment code above to unlock the log.</td></tr>`;
         document.getElementById('res-total').innerText = "0";
         document.getElementById('res-solo').innerText = "Locked";
@@ -734,12 +742,14 @@
         return;
       }
 
-      const { data: verificationCheck } = await _supabase.from('predictions').select('id').eq('game_id', gId).eq('code', filterCode).limit(1);
+      if (!isAdminAuthenticated) {
+        const { data: verificationCheck } = await _supabase.from('predictions').select('id').eq('game_id', gId).eq('code', filterCode).limit(1);
 
-      if (!verificationCheck || verificationCheck.length === 0) {
-        alert("Invalid Secret Code: Match entries locked.");
-        tbody.innerHTML = `<tr><td colspan="3" class="text-center text-danger">⚠️ Access Denied. Invalid entry code parameters.</td></tr>`;
-        return;
+        if (!verificationCheck || verificationCheck.length === 0) {
+          alert("Invalid Secret Code: Match entries locked.");
+          tbody.innerHTML = `<tr><td colspan="3" class="text-center text-danger">⚠️ Access Denied. Invalid entry code parameters.</td></tr>`;
+          return;
+        }
       }
 
       const { data: allPreds } = await _supabase.from('predictions').select('*').eq('game_id', gId);
@@ -772,7 +782,8 @@
         tbody.innerHTML += `<tr class="${p.isWinner ? 'winner-row' : ''}"><td class="fw-semibold">${p.displayName}</td><td><span class="badge bg-success">${p.team1_score} - ${p.team2_score}</span></td><td class="fw-bold">NPR ${Math.round(p.payoutValue)}</td></tr>`;
       });
 
-      document.getElementById('res-title').innerText = `Results Log: ${match.team1} vs ${match.team2}`;
+      const adminPreviewSuffix = (isAdminAuthenticated && beforeDeadline) ? ' (Admin Preview — before deadline, not yet visible to players)' : '';
+      document.getElementById('res-title').innerText = `Results Log: ${match.team1} vs ${match.team2}${adminPreviewSuffix}`;
       document.getElementById('res-total').innerText = allPreds.length;
       document.getElementById('res-solo').innerText = soloCount;
       showPage('results');
@@ -873,6 +884,7 @@
       if (!enteredPin) return;
       const { data: isAuthorized } = await _supabase.rpc('verify_admin_pin', { entered_pin: enteredPin });
       if (isAuthorized === true) {
+        isAdminAuthenticated = true;
         renderAdminDashboard();
         loadActiveMatchVouchers();
         showPage('admin');
