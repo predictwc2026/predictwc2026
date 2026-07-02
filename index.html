@@ -85,6 +85,11 @@
               <input type="number" class="form-control form-control-lg text-center" id="pred-t2-score" min="0" step="1" oninput="this.value=this.value.replace(/[^0-9]/g,'');" onkeydown="if(['.',',','-','+','e','E'].includes(event.key))event.preventDefault();" required>
             </div>
           </div>
+
+          <div class="mb-3 d-flex justify-content-center">
+            <div class="cf-turnstile" data-sitekey="0x4AAAAAADuS1rHCrg0NG4Ft"></div>
+          </div>
+
           <button type="submit" class="btn btn-primary w-100 btn-lg fw-bold">Submit Your Entry</button>
         </form>
       </div>
@@ -225,7 +230,7 @@
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">Edit Score</button>
-          <button type="button" class="btn btn-success fw-bold" onclick="executeFinalValidatedSubmission()">Yes, Lock It In</button>
+          <button type="button" class="btn btn-success fw-bold" id="btn-final-confirm" onclick="executeFinalValidatedSubmission()">Yes, Lock It In</button>
         </div>
       </div>
     </div>
@@ -394,6 +399,19 @@
       showPage('predict');
     }
 
+    function getTurnstileToken() {
+      // The Turnstile widget auto-injects a hidden input named "cf-turnstile-response"
+      // into whichever <form> it's placed inside.
+      const el = document.querySelector('#prediction-form [name="cf-turnstile-response"]');
+      return el ? el.value : "";
+    }
+
+    function resetTurnstileWidget() {
+      if (window.turnstile) {
+        try { window.turnstile.reset(); } catch (e) {}
+      }
+    }
+
     function triggerSubmissionConfirmation(e) {
       e.preventDefault();
       
@@ -411,6 +429,12 @@
       }
       document.getElementById('email-error').classList.add('d-none');
 
+      const captchaToken = getTurnstileToken();
+      if (!captchaToken) {
+        alert("⚠️ Please complete the verification checkbox before submitting.");
+        return;
+      }
+
       const match = globalMatches.find(x => x.game_id === document.getElementById('pred-gameId').value);
       
       temporaryPayloadCache = {
@@ -420,7 +444,8 @@
         email: email,
         code: document.getElementById('pred-code').value.trim(),
         team1_score: parseInt(rawScore1),
-        team2_score: parseInt(rawScore2)
+        team2_score: parseInt(rawScore2),
+        captchaToken: captchaToken
       };
 
       document.getElementById('conf-match-title').innerText = `${match.team1} vs ${match.team2}`;
@@ -434,10 +459,33 @@
     }
 
     async function executeFinalValidatedSubmission() {
-      bootstrapModalInstance.hide();
       if(!temporaryPayloadCache) return;
 
+      const confirmBtn = document.getElementById('btn-final-confirm');
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = "Verifying...";
+
       try {
+        // 1. Verify the CAPTCHA token server-side before doing anything else
+        const captchaRes = await fetch(`${SUPABASE_URL}/functions/v1/verify-captcha`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+            "apikey": SUPABASE_ANON_KEY
+          },
+          body: JSON.stringify({ token: temporaryPayloadCache.captchaToken })
+        });
+        const captchaResult = await captchaRes.json();
+
+        if (!captchaResult.success) {
+          alert("❌ Verification failed. Please retry the checkbox challenge and submit again.");
+          resetTurnstileWidget();
+          bootstrapModalInstance.hide();
+          return;
+        }
+
+        // 2. Voucher check
         const { data: voucherCheck, error: vErr } = await _supabase
           .from('match_vouchers')
           .select('*')
@@ -495,12 +543,17 @@
 
         alert("🎉 Certified! Your prediction has been securely locked.");
         document.getElementById('prediction-form').reset();
+        resetTurnstileWidget();
         temporaryPayloadCache = null;
         await loadMatchCenter();
         showPage('home');
 
       } catch (err) {
         alert("Unexpected system error: " + err.message);
+      } finally {
+        bootstrapModalInstance.hide();
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = "Yes, Lock It In";
       }
     }
 
