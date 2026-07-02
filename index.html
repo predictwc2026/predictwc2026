@@ -254,6 +254,7 @@
     let pendingDraftVouchersArray = [];
     let currentUnusedVouchersCache = [];
     let isAdminAuthenticated = false;
+    let adminPinCache = null; // kept only in memory for the session, used to re-verify admin RPC calls server-side
 
     window.onload = function() { 
       loadMatchCenter(); 
@@ -284,12 +285,12 @@
 
     async function loadMatchCenter() {
       const { data: matches, error: mErr } = await _supabase.from('matches').select('*');
-      const { data: preds, error: pErr } = await _supabase.from('predictions').select('game_id');
+      const { data: counts_raw, error: pErr } = await _supabase.from('public_prediction_counts').select('*');
       
       if (mErr) return;
 
       let counts = {};
-      if (preds) preds.forEach(p => { counts[p.game_id] = (counts[p.game_id] || 0) + 1; });
+      if (counts_raw) counts_raw.forEach(c => { counts[c.game_id] = c.prediction_count; });
 
       globalMatches = (matches || []).map(m => {
         const deadlineDate = new Date(m.deadline);
@@ -796,17 +797,28 @@
         return;
       }
 
-      if (!isAdminAuthenticated) {
-        const { data: verificationCheck } = await _supabase.from('predictions').select('id').eq('game_id', gId).eq('code', filterCode).limit(1);
+      let allPreds = null;
 
-        if (!verificationCheck || verificationCheck.length === 0) {
+      if (isAdminAuthenticated) {
+        const { data, error } = await _supabase.rpc('get_match_predictions_admin', {
+          p_game_id: gId,
+          p_admin_pin: adminPinCache
+        });
+        if (error || !data) { alert("Admin verification failed. Please re-login."); return; }
+        allPreds = data;
+      } else {
+        const { data, error } = await _supabase.rpc('get_match_predictions_by_code', {
+          p_game_id: gId,
+          p_code: filterCode
+        });
+        if (error || !data || data.length === 0) {
           alert("Invalid Secret Code: Match entries locked.");
           tbody.innerHTML = `<tr><td colspan="3" class="text-center text-danger">⚠️ Access Denied. Invalid entry code parameters.</td></tr>`;
           return;
         }
+        allPreds = data;
       }
 
-      const { data: allPreds } = await _supabase.from('predictions').select('*').eq('game_id', gId);
       if (!allPreds) return;
 
       let scoreComboMap = {};
@@ -846,23 +858,32 @@
     async function promptLeaderboardAuth() {
       const passCode = prompt("Enter your prediction validation token to view the standings:");
       if (!passCode) return;
-      const { data, error } = await _supabase.from('predictions').select('full_name').eq('code', passCode).limit(1);
-      if (error || !data || data.length === 0) {
+      buildGlobalLeaderboard(passCode);
+    }
+
+    async function buildGlobalLeaderboard(passCode) {
+      const { data: rows, error } = await _supabase.rpc('get_leaderboard_data', { p_code: passCode });
+
+      if (error || !rows || rows.length === 0) {
         alert("Authentication Failed.");
         return;
       }
-      buildGlobalLeaderboard();
-    }
 
-    async function buildGlobalLeaderboard() {
-      const { data: allPredictions } = await _supabase.from('predictions').select('*');
-      const { data: allMatches } = await _supabase.from('matches').select('*');
-
-      let matchMap = {}; let concludedGamesCount = 0;
-      allMatches.forEach(m => {
-        matchMap[m.game_id] = m;
-        if (m.team1_score !== null && m.team2_score !== null) concludedGamesCount++;
+      // Reconstruct per-match info and per-prediction info from the flattened RPC rows
+      let matchMap = {}; let concludedGamesSet = new Set();
+      rows.forEach(r => {
+        if (!matchMap[r.game_id]) {
+          matchMap[r.game_id] = { team1_score: r.match_t1, team2_score: r.match_t2, fee: r.fee };
+        }
+        if (r.match_t1 !== null && r.match_t2 !== null) concludedGamesSet.add(r.game_id);
       });
+
+      let allPredictions = rows.map(r => ({
+        game_id: r.game_id, full_name: r.full_name, email: r.email,
+        team1_score: r.pred_t1, team2_score: r.pred_t2
+      }));
+
+      let concludedGamesCount = concludedGamesSet.size;
 
       let gameDistribution = {};
       allPredictions.forEach(p => {
@@ -915,7 +936,7 @@
 
     async function loadMyPrivateVault() {
       const codeInput = document.getElementById('my-vault-code-input').value.trim();
-      const { data: userPredictions } = await _supabase.from('predictions').select('*').eq('code', codeInput);
+      const { data: userPredictions } = await _supabase.rpc('get_my_predictions', { p_code: codeInput });
 
       if (!userPredictions || userPredictions.length === 0) {
         alert("No entries found."); return;
@@ -939,6 +960,7 @@
       const { data: isAuthorized } = await _supabase.rpc('verify_admin_pin', { entered_pin: enteredPin });
       if (isAuthorized === true) {
         isAdminAuthenticated = true;
+        adminPinCache = enteredPin;
         renderAdminDashboard();
         loadActiveMatchVouchers();
         showPage('admin');
