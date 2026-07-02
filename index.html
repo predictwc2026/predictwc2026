@@ -141,7 +141,7 @@
           <div class="col-md-6 mb-2"><div class="p-3 bg-light border rounded"><h6>No Of Predictions</h6><h2 id="res-total" class="fw-bold text-primary">0</h2></div></div>
           <div class="col-md-6 mb-2"><div class="p-3 bg-light border rounded"><h6>Solo Unique Predictions</h6><h2 id="res-solo" class="fw-bold text-warning">0</h2></div></div>
         </div>
-        <div id="results-code-box" class="mb-4 p-3 bg-light rounded border">
+        <div class="mb-4 p-3 bg-light rounded border">
           <label class="form-label fw-bold text-secondary">Unlock Forecast Board Entries:</label>
           <div class="input-group">
             <input type="text" id="verify-code-input" class="form-control" placeholder="Enter your passcode">
@@ -247,7 +247,6 @@
     let temporaryPayloadCache = null;
     let pendingDraftVouchersArray = [];
     let currentUnusedVouchersCache = [];
-    let isAdminAuthenticated = false;
 
     window.onload = function() { 
       loadMatchCenter(); 
@@ -713,81 +712,84 @@
       renderResultsView(activeGameId, document.getElementById('verify-code-input').value);
     }
 
-    async function renderResultsView(gId, filterCode) {
-      const match = globalMatches.find(x => x.game_id === gId);
-      const beforeDeadline = new Date() < new Date(match.deadline);
+async function renderResultsView(gId, filterCode) {
+  const match = globalMatches.find(x => x.game_id === gId);
+  
+  // Check if admin: Attempt to verify pin via existing RPC or a simple flag
+  // For simplicity, we check if the code entered is the "Admin PIN" 
+  // or if the game has concluded normally.
+  const isDeadLinePassed = new Date() > new Date(match.deadline);
+  
+  // Admin bypass logic: If they enter the Admin PIN (e.g., '1234'), allow access
+  const { data: isAdmin } = await _supabase.rpc('verify_admin_pin', { entered_pin: filterCode });
+  
+  if (!isDeadLinePassed && !isAdmin) {
+    alert("System Lockout: Scoreboard analytics remain classified until match deadline.");
+    return;
+  }
 
-      // Only non-admins are locked out before the deadline. Admin can always view.
-      if (!isAdminAuthenticated && beforeDeadline) {
-        alert("System Lockout: Scoreboard analytics remain classified until match deadline.");
-        return;
-      }
+  const tbody = document.getElementById('results-table-body');
+  const pillsContainer = document.getElementById('combination-pills-container');
+  const summarySection = document.getElementById('summary-combinations-section');
+  
+  tbody.innerHTML = ""; pillsContainer.innerHTML = ""; summarySection.classList.add('d-none');
 
-      const tbody = document.getElementById('results-table-body');
-      const pillsContainer = document.getElementById('combination-pills-container');
-      const summarySection = document.getElementById('summary-combinations-section');
-      const codeBox = document.getElementById('results-code-box');
+  // If not admin and no code provided, prompt for code
+  if (!filterCode || filterCode.trim() === "") {
+    tbody.innerHTML = `<tr><td colspan="3" class="text-center text-muted">🔒 Please enter your assignment code above to unlock the log.</td></tr>`;
+    document.getElementById('res-total').innerText = "0";
+    document.getElementById('res-solo').innerText = "Locked";
+    document.getElementById('res-title').innerText = `Results Log: ${match.team1} vs ${match.team2}`;
+    showPage('results');
+    return;
+  }
 
-      tbody.innerHTML = ""; pillsContainer.innerHTML = ""; summarySection.classList.add('d-none');
+  // Verification Logic
+  const { data: verificationCheck } = await _supabase.from('predictions').select('id').eq('game_id', gId).eq('code', filterCode).limit(1);
 
-      // Admin doesn't need a voucher code to unlock — they're already authenticated.
-      if (codeBox) codeBox.classList.toggle('d-none', isAdminAuthenticated);
+  // If not admin, verify if the code belongs to a participant
+  if (!isAdmin && (!verificationCheck || verificationCheck.length === 0)) {
+    alert("Invalid Secret Code: Match entries locked.");
+    tbody.innerHTML = `<tr><td colspan="3" class="text-center text-danger">⚠️ Access Denied.</td></tr>`;
+    return;
+  }
 
-      if (!isAdminAuthenticated && (!filterCode || filterCode.trim() === "")) {
-        tbody.innerHTML = `<tr><td colspan="3" class="text-center text-muted">🔒 Please enter your assignment code above to unlock the log.</td></tr>`;
-        document.getElementById('res-total').innerText = "0";
-        document.getElementById('res-solo').innerText = "Locked";
-        document.getElementById('res-title').innerText = `Results Log: ${match.team1} vs ${match.team2}`;
-        showPage('results');
-        return;
-      }
+  const { data: allPreds } = await _supabase.from('predictions').select('*').eq('game_id', gId);
+  if (!allPreds) return;
 
-      if (!isAdminAuthenticated) {
-        const { data: verificationCheck } = await _supabase.from('predictions').select('id').eq('game_id', gId).eq('code', filterCode).limit(1);
+  // ... (rest of your existing logic for rendering table rows stays exactly the same) ...
+  let scoreComboMap = {};
+  allPreds.forEach(p => {
+    let key = `${p.team1_score}-${p.team2_score}`;
+    scoreComboMap[key] = (scoreComboMap[key] || 0) + 1;
+  });
 
-        if (!verificationCheck || verificationCheck.length === 0) {
-          alert("Invalid Secret Code: Match entries locked.");
-          tbody.innerHTML = `<tr><td colspan="3" class="text-center text-danger">⚠️ Access Denied. Invalid entry code parameters.</td></tr>`;
-          return;
-        }
-      }
+  summarySection.classList.remove('d-none');
+  Object.keys(scoreComboMap).forEach(key => {
+    pillsContainer.innerHTML += `<span class="combo-pill">${key}: ${scoreComboMap[key]} entries</span>`;
+  });
 
-      const { data: allPreds } = await _supabase.from('predictions').select('*').eq('game_id', gId);
-      if (!allPreds) return;
+  let finalScoreKey = (match.team1_score !== null && match.team2_score !== null) ? `${match.team1_score}-${match.team2_score}` : null;
+  let matchingPredictionsCount = finalScoreKey ? (scoreComboMap[finalScoreKey] || 0) : 0;
+  let calculatedPayout = (finalScoreKey && matchingPredictionsCount > 0) ? ((allPreds.length * match.fee) / matchingPredictionsCount) : 0;
 
-      let scoreComboMap = {};
-      allPreds.forEach(p => {
-        let key = `${p.team1_score}-${p.team2_score}`;
-        scoreComboMap[key] = (scoreComboMap[key] || 0) + 1;
-      });
+  let soloCount = 0;
+  let processedPreds = allPreds.map(p => {
+    let comboKey = `${p.team1_score}-${p.team2_score}`;
+    if(scoreComboMap[comboKey] === 1) soloCount++;
+    let isWinner = finalScoreKey && comboKey === finalScoreKey;
+    return { ...p, displayName: isWinner ? `🏆 ${p.full_name}` : p.full_name, payoutValue: isWinner ? calculatedPayout : 0, isWinner: isWinner };
+  });
 
-      summarySection.classList.remove('d-none');
-      Object.keys(scoreComboMap).forEach(key => {
-        pillsContainer.innerHTML += `<span class="combo-pill">${key}: ${scoreComboMap[key]} entries</span>`;
-      });
+  processedPreds.sort((a, b) => b.isWinner - a.isWinner).forEach(p => {
+    tbody.innerHTML += `<tr class="${p.isWinner ? 'winner-row' : ''}"><td class="fw-semibold">${p.displayName}</td><td><span class="badge bg-success">${p.team1_score} - ${p.team2_score}</span></td><td class="fw-bold">NPR ${Math.round(p.payoutValue)}</td></tr>`;
+  });
 
-      let finalScoreKey = (match.team1_score !== null && match.team2_score !== null) ? `${match.team1_score}-${match.team2_score}` : null;
-      let matchingPredictionsCount = finalScoreKey ? (scoreComboMap[finalScoreKey] || 0) : 0;
-      let calculatedPayout = (finalScoreKey && matchingPredictionsCount > 0) ? ((allPreds.length * match.fee) / matchingPredictionsCount) : 0;
-
-      let soloCount = 0;
-      let processedPreds = allPreds.map(p => {
-        let comboKey = `${p.team1_score}-${p.team2_score}`;
-        if(scoreComboMap[comboKey] === 1) soloCount++;
-        let isWinner = finalScoreKey && comboKey === finalScoreKey;
-        return { ...p, displayName: isWinner ? `🏆 ${p.full_name}` : p.full_name, payoutValue: isWinner ? calculatedPayout : 0, isWinner: isWinner };
-      });
-
-      processedPreds.sort((a, b) => b.isWinner - a.isWinner).forEach(p => {
-        tbody.innerHTML += `<tr class="${p.isWinner ? 'winner-row' : ''}"><td class="fw-semibold">${p.displayName}</td><td><span class="badge bg-success">${p.team1_score} - ${p.team2_score}</span></td><td class="fw-bold">NPR ${Math.round(p.payoutValue)}</td></tr>`;
-      });
-
-      const adminPreviewSuffix = (isAdminAuthenticated && beforeDeadline) ? ' (Admin Preview — before deadline, not yet visible to players)' : '';
-      document.getElementById('res-title').innerText = `Results Log: ${match.team1} vs ${match.team2}${adminPreviewSuffix}`;
-      document.getElementById('res-total').innerText = allPreds.length;
-      document.getElementById('res-solo').innerText = soloCount;
-      showPage('results');
-    }
+  document.getElementById('res-title').innerText = `Results Log: ${match.team1} vs ${match.team2}`;
+  document.getElementById('res-total').innerText = allPreds.length;
+  document.getElementById('res-solo').innerText = soloCount;
+  showPage('results');
+}
 
     async function promptLeaderboardAuth() {
       const passCode = prompt("Enter your prediction validation token to view the standings:");
@@ -884,7 +886,6 @@
       if (!enteredPin) return;
       const { data: isAuthorized } = await _supabase.rpc('verify_admin_pin', { entered_pin: enteredPin });
       if (isAuthorized === true) {
-        isAdminAuthenticated = true;
         renderAdminDashboard();
         loadActiveMatchVouchers();
         showPage('admin');
