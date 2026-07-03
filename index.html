@@ -71,6 +71,7 @@
         <button id="btn-sched-upcoming" class="btn btn-outline-secondary filter-btn" onclick="setScheduleFilter('Upcoming')">Upcoming</button>
         <button class="btn btn-outline-dark filter-btn" onclick="loadFullSchedule(true)">🔄 Refresh</button>
       </div>
+      <div id="schedule-venue-warning" class="alert alert-warning py-2 px-3 small d-none" role="alert"></div>
       <div id="schedule-container" class="row">
         <div class="text-center col-12">
           <div class="spinner-border text-primary" role="status"></div>
@@ -530,10 +531,26 @@
         scheduleGames = Array.isArray(gamesData) ? gamesData : (gamesData.games || []);
 
         scheduleStadiumsMap = {};
+        const warningEl = document.getElementById('schedule-venue-warning');
         if (stadiumsRes && stadiumsRes.ok) {
           const stadiumsData = await stadiumsRes.json();
-          const list = Array.isArray(stadiumsData) ? stadiumsData : (stadiumsData.stadiums || []);
+          const list = Array.isArray(stadiumsData) ? stadiumsData
+            : Array.isArray(stadiumsData.stadiums) ? stadiumsData.stadiums
+            : Array.isArray(stadiumsData.data) ? stadiumsData.data
+            : Array.isArray(stadiumsData.results) ? stadiumsData.results
+            : [];
           list.forEach(s => { scheduleStadiumsMap[s.id] = s; });
+          if (list.length === 0) {
+            console.warn('worldcup26.ir: stadiums response had no recognizable array of venues', stadiumsData);
+            warningEl.textContent = '⚠️ Venue/timezone data came back empty — kickoff times below may default to US Eastern Time and could be off for some matches.';
+            warningEl.classList.remove('d-none');
+          } else {
+            warningEl.classList.add('d-none');
+          }
+        } else {
+          console.warn('worldcup26.ir: failed to load /get/stadiums — venue timezones will fall back to Eastern Time', stadiumsRes && stadiumsRes.status);
+          warningEl.textContent = '⚠️ Could not load venue data — kickoff times below may default to US Eastern Time and could be off for some matches.';
+          warningEl.classList.remove('d-none');
         }
 
         scheduleGames.forEach(m => { m._nptEpoch = getNptEpoch(m.local_date, m.stadium_id); });
@@ -576,7 +593,7 @@
     // Nepal Time (UTC+5:45, fixed, no DST).
     const NPT_UTC_OFFSET_MIN = 5 * 60 + 45; // Nepal Time (UTC+5:45)
 
-    function getVenueTimeZone(stadium) {
+    function getVenueTimeZoneByCity(stadium) {
       const city = ((stadium && stadium.city_en) || '').toLowerCase();
       const country = ((stadium && stadium.country_en) || '').toLowerCase();
       const name = ((stadium && (stadium.fifa_name || stadium.name_en)) || '').toLowerCase();
@@ -590,7 +607,33 @@
       if (/inglewood|santa clara|seattle|san francisco|los angeles|bay area|washington state/.test(hay)) return 'America/Los_Angeles';
       if (/dallas|arlington|houston|kansas city|texas|missouri/.test(hay)) return 'America/Chicago';
       if (/atlanta|miami|philadelphia|boston|foxborough|east rutherford|new york|new jersey/.test(hay)) return 'America/New_York';
-      return 'America/New_York'; // fallback: FIFA's default broadcast reference zone
+      return 'America/New_York'; // last-resort fallback: FIFA's default broadcast reference zone
+    }
+
+    // Stadium records from /get/stadiums include a "region" field (e.g. "Central", "Pacific",
+    // "Eastern", "Mountain") plus country_en. This is authoritative and far more reliable than
+    // guessing from the city name, so we use it first and only fall back to city-text matching
+    // if a stadium record (or its region) is missing.
+    function getVenueTimeZone(stadium) {
+      const region = ((stadium && stadium.region) || '').toLowerCase();
+      const country = ((stadium && stadium.country_en) || '').toLowerCase();
+
+      if (!stadium || !region) return getVenueTimeZoneByCity(stadium);
+
+      if (country.includes('mexico')) {
+        // Mexico is on fixed standard time year-round (no DST) — America/Mexico_City and
+        // America/Monterrey share the same UTC-6 offset, so either resolves correctly.
+        return 'America/Mexico_City';
+      }
+      if (country.includes('canada')) {
+        return region.includes('pacific') ? 'America/Vancouver' : 'America/Toronto';
+      }
+      // United States (or unspecified — treat as US region label)
+      if (region.includes('pacific')) return 'America/Los_Angeles';
+      if (region.includes('mountain')) return 'America/Denver';
+      if (region.includes('central')) return 'America/Chicago';
+      if (region.includes('eastern')) return 'America/New_York';
+      return getVenueTimeZoneByCity(stadium);
     }
 
     // Given a wall-clock date/time and an IANA zone, returns that zone's UTC offset in minutes
