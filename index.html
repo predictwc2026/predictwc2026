@@ -29,6 +29,10 @@
     .final-score-team .flag-img { width: 56px; height: 38px; }
     .final-score-num { font-size: 2.25rem; font-weight: 800; color: #0d6efd; }
     .match-type-badge { display: inline-block; background-color: #f3e8ff; color: #3b0042; font-weight: 700; font-size: 0.78rem; letter-spacing: 0.03em; text-transform: uppercase; padding: 4px 14px; border-radius: 20px; }
+    .score-stepper { background-color: #3b0042; border-radius: 14px; padding: 10px 14px; }
+    .stepper-btn { width: 40px; height: 40px; flex-shrink: 0; border: none; border-radius: 50%; background-color: #fff; color: #3b0042; font-size: 1.4rem; font-weight: 700; line-height: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; user-select: none; }
+    .stepper-btn:active { background-color: #e9ecef; }
+    .stepper-value { color: #fff; font-size: 1.75rem; font-weight: 800; min-width: 40px; text-align: center; }
   </style>
 </head>
 <body>
@@ -105,11 +109,21 @@
           <div class="row mb-4">
             <div class="col-6">
               <label class="form-label fw-semibold" id="lbl-team1">Team 1 Score</label>
-              <input type="number" class="form-control form-control-lg text-center" id="pred-t1-score" min="0" step="1" oninput="this.value=this.value.replace(/[^0-9]/g,'');" onkeydown="if(['.',',','-','+','e','E'].includes(event.key))event.preventDefault();" required>
+              <div class="score-stepper d-flex align-items-center justify-content-between">
+                <button type="button" class="stepper-btn" onclick="adjustPredictionScore('t1', -1)" aria-label="Decrease">−</button>
+                <span id="pred-t1-display" class="stepper-value">–</span>
+                <button type="button" class="stepper-btn" onclick="adjustPredictionScore('t1', 1)" aria-label="Increase">+</button>
+              </div>
+              <input type="hidden" id="pred-t1-score" value="">
             </div>
             <div class="col-6">
               <label class="form-label fw-semibold" id="lbl-team2">Team 2 Score</label>
-              <input type="number" class="form-control form-control-lg text-center" id="pred-t2-score" min="0" step="1" oninput="this.value=this.value.replace(/[^0-9]/g,'');" onkeydown="if(['.',',','-','+','e','E'].includes(event.key))event.preventDefault();" required>
+              <div class="score-stepper d-flex align-items-center justify-content-between">
+                <button type="button" class="stepper-btn" onclick="adjustPredictionScore('t2', -1)" aria-label="Decrease">−</button>
+                <span id="pred-t2-display" class="stepper-value">–</span>
+                <button type="button" class="stepper-btn" onclick="adjustPredictionScore('t2', 1)" aria-label="Increase">+</button>
+              </div>
+              <input type="hidden" id="pred-t2-score" value="">
             </div>
           </div>
 
@@ -374,6 +388,33 @@
     let currentUnusedVouchersCache = [];
     let isAdminAuthenticated = false;
     let adminPinCache = null; // kept only in memory for the session, used to re-verify admin RPC calls server-side
+
+    // --- Score stepper state for the prediction form (blank/null by default, 0-15 range) ---
+    const SCORE_MIN = 0;
+    const SCORE_MAX = 15;
+    let predictionScores = { t1: null, t2: null };
+
+    function resetPredictionScores() {
+      predictionScores = { t1: null, t2: null };
+      ['t1', 't2'].forEach(team => {
+        document.getElementById(`pred-${team}-display`).innerText = '–';
+        document.getElementById(`pred-${team}-score`).value = '';
+      });
+    }
+
+    function adjustPredictionScore(team, delta) {
+      let current = predictionScores[team];
+      if (current === null) {
+        // Starting from blank: '+' begins at 0, '-' does nothing (can't go below empty).
+        if (delta < 0) return;
+        current = 0;
+      } else {
+        current = Math.min(SCORE_MAX, Math.max(SCORE_MIN, current + delta));
+      }
+      predictionScores[team] = current;
+      document.getElementById(`pred-${team}-display`).innerText = current;
+      document.getElementById(`pred-${team}-score`).value = current;
+    }
 
     // --- Full Schedule (worldcup26.ir API) state ---
     const SCHEDULE_API_BASE = "https://worldcup26.ir";
@@ -777,6 +818,7 @@
       document.getElementById('predict-title').innerText = `${m.team1} vs ${m.team2}`;
       document.getElementById('lbl-team1').innerText = m.team1 + " Score";
       document.getElementById('lbl-team2').innerText = m.team2 + " Score";
+      resetPredictionScores();
       showPage('predict');
     }
 
@@ -796,8 +838,8 @@
       
       const rawScore1 = document.getElementById('pred-t1-score').value;
       const rawScore2 = document.getElementById('pred-t2-score').value;
-      if (rawScore1.includes('.') || rawScore2.includes('.')) {
-        alert("❌ Error: Decimal values are blocked. Enter integers only.");
+      if (rawScore1 === '' || rawScore2 === '') {
+        alert("⚠️ Please set both scores using the +/- buttons before submitting.");
         return;
       }
 
@@ -920,6 +962,7 @@
 
         alert("🎉 Certified! Your prediction has been securely locked.");
         document.getElementById('prediction-form').reset();
+        resetPredictionScores();
         resetTurnstileWidget();
         temporaryPayloadCache = null;
         await loadMatchCenter();
