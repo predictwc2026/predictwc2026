@@ -379,7 +379,8 @@
       const cleanName = countryName.trim().toLowerCase();
       const flagMapping = {
         "nepal": "np", "india": "in", "portugal": "pt", "brazil": "br", "argentina": "ar", 
-        "france": "fr", "spain": "es", "germany": "de", "england": "gb-eng", "croatia": "hr"
+        "france": "fr", "spain": "es", "germany": "de", "england": "gb-eng", "croatia": "hr",
+        "cabo verde": "cv", "cape verde": "cv"
       };
       const code = flagMapping[cleanName] || cleanName.substring(0,2);
       return `https://flagcdn.com/w40/${code}.png`;
