@@ -528,8 +528,6 @@
         if (!gamesRes.ok) throw new Error(`Server returned ${gamesRes.status}`);
         const gamesData = await gamesRes.json();
         scheduleGames = Array.isArray(gamesData) ? gamesData : (gamesData.games || []);
-        scheduleGames.forEach(m => { m._nptEpoch = getNptEpoch(m.local_date); });
-        scheduleGames.sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
 
         scheduleStadiumsMap = {};
         if (stadiumsRes && stadiumsRes.ok) {
@@ -537,6 +535,9 @@
           const list = Array.isArray(stadiumsData) ? stadiumsData : (stadiumsData.stadiums || []);
           list.forEach(s => { scheduleStadiumsMap[s.id] = s; });
         }
+
+        scheduleGames.forEach(m => { m._nptEpoch = getNptEpoch(m.local_date, m.stadium_id); });
+        scheduleGames.sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
 
         scheduleLoaded = true;
         renderScheduleDashboard();
@@ -566,38 +567,64 @@
       return stageMap[m.type] || (m.type ? m.type.toUpperCase() : 'Match');
     }
 
-    function parseScheduleDate(dateStr) {
-      if (!dateStr) return null;
-      try {
-        const [datePart, timePart] = dateStr.split(' ');
-        const [mm, dd, yyyy] = datePart.split('/');
-        const [hh, min] = (timePart || '00:00').split(':');
-        const d = new Date(yyyy, mm - 1, dd, hh, min);
-        return isNaN(d.getTime()) ? null : d;
-      } catch (e) {
-        return null;
-      }
+    // The worldcup26.ir API's local_date is each match's own STADIUM-LOCAL kickoff time (not a
+    // single global timezone) — e.g. a Los Angeles match is in Pacific time, a Miami match is in
+    // Eastern time, a Monterrey match is in Mexico Central time, etc. So we resolve the real IANA
+    // timezone of the match's venue (from city_en/country_en on the stadium record) and use the
+    // browser's built-in Intl timezone database to get the exact UTC offset for that place/date
+    // (this automatically accounts for each region's own DST rules). We then convert that to
+    // Nepal Time (UTC+5:45, fixed, no DST).
+    const NPT_UTC_OFFSET_MIN = 5 * 60 + 45; // Nepal Time (UTC+5:45)
+
+    function getVenueTimeZone(stadium) {
+      const city = ((stadium && stadium.city_en) || '').toLowerCase();
+      const country = ((stadium && stadium.country_en) || '').toLowerCase();
+      const name = ((stadium && (stadium.fifa_name || stadium.name_en)) || '').toLowerCase();
+      const hay = `${city} ${country} ${name}`;
+
+      if (/mexico city|ciudad de m|cdmx/.test(hay)) return 'America/Mexico_City';
+      if (/guadalajara|jalisco/.test(hay)) return 'America/Mexico_City';
+      if (/monterrey|nuevo le/.test(hay)) return 'America/Monterrey';
+      if (/toronto|ontario/.test(hay)) return 'America/Toronto';
+      if (/vancouver|british columbia/.test(hay)) return 'America/Vancouver';
+      if (/inglewood|santa clara|seattle|san francisco|los angeles|bay area|washington state/.test(hay)) return 'America/Los_Angeles';
+      if (/dallas|arlington|houston|kansas city|texas|missouri/.test(hay)) return 'America/Chicago';
+      if (/atlanta|miami|philadelphia|boston|foxborough|east rutherford|new york|new jersey/.test(hay)) return 'America/New_York';
+      return 'America/New_York'; // fallback: FIFA's default broadcast reference zone
     }
 
-    // The worldcup26.ir API's local_date field is not Iran time (despite the .ir domain) — it
-    // matches FIFA's officially announced kickoff times, which FIFA always publishes in US
-    // Eastern Time (EDT, UTC-4, fixed — DST is in effect for the entire June-July tournament
-    // window). We convert that to Nepal Time (UTC+5:45, fixed): a constant +9h45m shift.
-    const SOURCE_UTC_OFFSET_MIN = -4 * 60;     // US Eastern Daylight Time (EDT, UTC-4)
-    const NPT_UTC_OFFSET_MIN = 5 * 60 + 45;    // Nepal Time (UTC+5:45)
+    // Given a wall-clock date/time and an IANA zone, returns that zone's UTC offset in minutes
+    // (e.g. -240 for EDT) at that moment, using the browser's real timezone database.
+    function getZoneOffsetMinutes(timeZone, y, mo, d, hh, mi) {
+      const guessUtc = Date.UTC(y, mo - 1, d, hh, mi);
+      const dtf = new Intl.DateTimeFormat('en-US', {
+        timeZone, hourCycle: 'h23',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+      });
+      const parts = {};
+      dtf.formatToParts(new Date(guessUtc)).forEach(p => { if (p.type !== 'literal') parts[p.type] = parseInt(p.value, 10); });
+      const asIfUtc = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
+      return (asIfUtc - guessUtc) / 60000;
+    }
 
-    function getNptEpoch(dateStr) {
+    function getNptEpoch(dateStr, stadiumId) {
       if (!dateStr) return null;
       const [datePart, timePart] = dateStr.split(' ');
       const [mm, dd, yyyy] = datePart.split('/').map(Number);
       const [hh, min] = (timePart || '00:00').split(':').map(Number);
       if (!yyyy || !mm || !dd) return null;
-      const trueUtcMillis = Date.UTC(yyyy, mm - 1, dd, hh, min) - SOURCE_UTC_OFFSET_MIN * 60000;
+
+      const stadium = scheduleStadiumsMap[stadiumId];
+      const venueZone = getVenueTimeZone(stadium);
+      const venueOffsetMin = getZoneOffsetMinutes(venueZone, yyyy, mm, dd, hh, min);
+
+      const trueUtcMillis = Date.UTC(yyyy, mm - 1, dd, hh, min) - venueOffsetMin * 60000;
       return trueUtcMillis + NPT_UTC_OFFSET_MIN * 60000; // epoch whose UTC getters equal NPT wall-clock time
     }
 
-    function formatScheduleDate(dateStr) {
-      const epoch = getNptEpoch(dateStr);
+    function formatScheduleDate(dateStr, stadiumId) {
+      const epoch = getNptEpoch(dateStr, stadiumId);
       if (epoch === null || isNaN(epoch)) return dateStr || 'Date TBD';
       const d = new Date(epoch);
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -658,7 +685,7 @@
                 <div style="width:20%;">${scoreOrVs}</div>
                 <div style="width:40%;"><img src="${awayFlag}" onerror="this.src='https://placehold.co/45x30?text=⚽'" class="flag-img mb-1"><br><span class="fw-bold small d-block text-truncate">${awayName}</span></div>
               </div>
-              <div class="text-muted small mb-1">🗓️ ${formatScheduleDate(m.local_date)}</div>
+              <div class="text-muted small mb-1">🗓️ ${formatScheduleDate(m.local_date, m.stadium_id)}</div>
               ${venueText ? `<div class="text-muted small">📍 ${venueText}</div>` : ''}
             </div>
           </div>`;
