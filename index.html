@@ -1123,11 +1123,22 @@
           .filter(item => !item.h.trim().startsWith('_'))
           .map(item => item.idx);
 
+        // Find the "Rank" column (if present on this tab) to highlight top 4 + last row as winners
+        const rankColIndex = headers.findIndex(h => h.trim().toLowerCase() === 'rank');
+
         let html = "<table class='table table-striped table-bordered align-middle'><thead class='table-dark'><tr>";
         visibleIndexes.forEach(idx => html += `<th>${headers[idx]}</th>`);
         html += "</tr></thead><tbody>";
-        dataRows.forEach(row => {
-          html += "<tr>";
+        dataRows.forEach((row, rowIdx) => {
+          let isWinnerRow = false;
+
+          if (rankColIndex !== -1) {
+            const rankVal = parseInt((row[rankColIndex] || '').trim());
+            if (!isNaN(rankVal) && rankVal >= 1 && rankVal <= 4) isWinnerRow = true;
+          }
+          if (rowIdx === dataRows.length - 1) isWinnerRow = true; // always highlight the last row
+
+          html += `<tr class="${isWinnerRow ? 'winner-row' : ''}">`;
           visibleIndexes.forEach(idx => html += `<td>${row[idx] ?? ''}</td>`);
           html += "</tr>";
         });
