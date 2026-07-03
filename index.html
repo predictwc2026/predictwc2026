@@ -1106,12 +1106,18 @@
         const headers = rows[0];
         const dataRows = rows.slice(1);
 
+        // Hide internal/utility columns (e.g. "_pos") that exist in the sheet but shouldn't be shown publicly
+        const visibleIndexes = headers
+          .map((h, idx) => ({ h, idx }))
+          .filter(item => !item.h.trim().startsWith('_'))
+          .map(item => item.idx);
+
         let html = "<table class='table table-striped table-bordered align-middle'><thead class='table-dark'><tr>";
-        headers.forEach(h => html += `<th>${h}</th>`);
+        visibleIndexes.forEach(idx => html += `<th>${headers[idx]}</th>`);
         html += "</tr></thead><tbody>";
         dataRows.forEach(row => {
           html += "<tr>";
-          row.forEach(cell => html += `<td>${cell}</td>`);
+          visibleIndexes.forEach(idx => html += `<td>${row[idx] ?? ''}</td>`);
           html += "</tr>";
         });
         html += "</tbody></table>";
