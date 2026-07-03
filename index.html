@@ -215,7 +215,12 @@
     <div id="page-sheet" class="page-view d-none">
       <button class="btn btn-secondary mb-3" onclick="showPage('home')">← Back to Fixtures</button>
       <div class="card p-4">
-        <h3 class="fw-bold mb-4">📊 Tournament Results</h3>
+        <h3 class="fw-bold mb-3">📊 Tournament Results</h3>
+        <ul class="nav nav-pills mb-4" id="sheet-tabs-nav">
+          <li class="nav-item"><a class="nav-link active" href="#" onclick="switchSheetTab('475091993', this); return false;">Summary</a></li>
+          <li class="nav-item"><a class="nav-link" href="#" onclick="switchSheetTab('968243674', this); return false;">Predictions</a></li>
+          <li class="nav-item"><a class="nav-link" href="#" onclick="switchSheetTab('1741460864', this); return false;">Tournament Results</a></li>
+        </ul>
         <div id="sheet-loading" class="text-center p-4">
           <div class="spinner-border text-primary" role="status"></div>
           <p class="mt-2">Loading sheet data...</p>
@@ -1074,20 +1079,26 @@
       if (isAuthorized === true) {
         sheetPasswordModalInstance.hide();
         showPage('sheet');
-        loadGoogleSheetData();
+        loadGoogleSheetData('475091993'); // default to Summary tab
       } else {
         alert("Incorrect password.");
       }
     }
 
-    async function loadGoogleSheetData() {
+    function switchSheetTab(gid, linkEl) {
+      document.querySelectorAll('#sheet-tabs-nav .nav-link').forEach(el => el.classList.remove('active'));
+      linkEl.classList.add('active');
+      loadGoogleSheetData(gid);
+    }
+
+    async function loadGoogleSheetData(gid) {
       const loadingEl = document.getElementById('sheet-loading');
       const containerEl = document.getElementById('sheet-table-container');
       loadingEl.classList.remove('d-none');
       containerEl.innerHTML = "";
 
       const sheetId = "1TZJ3o4DYQdTCUZ7sbaQgSfCweQX4caazGSWQSF2DtYE";
-      const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`;
+      const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
 
       try {
         const res = await fetch(csvUrl);
