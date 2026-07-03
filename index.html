@@ -454,7 +454,9 @@
       if (countdownIntervalId) clearInterval(countdownIntervalId);
       const container = document.getElementById('matches-container');
       container.innerHTML = "";
-      const filtered = globalMatches.filter(m => m.status === currentFilterTab);
+      const filtered = globalMatches
+		.filter(m => m.status === currentFilterTab)
+		.sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
 
       if(filtered.length === 0) {
         container.innerHTML = `<div class="col-12 text-center text-muted p-5"><h5>No matching ${currentFilterTab.toLowerCase()} fixtures cataloged.</h5></div>`;
