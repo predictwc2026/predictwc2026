@@ -19,13 +19,15 @@
     .combo-pill { display: inline-block; background-color: #e9ecef; padding: 6px 12px; margin: 4px; border-radius: 20px; font-weight: 600; font-size: 0.9rem; }
     .winner-row { background-color: #fff9e6 !important; }
     .winner-row > td, .winner-row > th { background-color: #fff9e6 !important; }
-    .max-round16-row { background-color: #cfe2ff !important; }
-    .max-round16-row > td, .max-round16-row > th { background-color: #cfe2ff !important; }
     .filter-btn { border-radius: 20px; padding: 6px 20px; font-weight: 600; }
     .stat-card { border-radius: 12px; border: 1px solid #eef2f5; background: #fff; padding: 20px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.02); }
     .stat-val { font-size: 2rem; font-weight: bold; color: #0d6efd; }
     .leaderboard-header { background-color: #2b6cb0 !important; color: white !important; }
     .countdown-text { color: #dc3545; font-weight: 700; letter-spacing: 0.5px; }
+    .final-score-banner { display: flex; align-items: center; justify-content: center; gap: 24px; margin: 16px 0 24px; }
+    .final-score-team { text-align: center; min-width: 100px; }
+    .final-score-team .flag-img { width: 56px; height: 38px; }
+    .final-score-num { font-size: 2.25rem; font-weight: 800; color: #0d6efd; }
   </style>
 </head>
 <body>
@@ -148,6 +150,7 @@
       <button class="btn btn-secondary mb-3" onclick="showPage('home')">← Back to Fixtures</button>
       <div class="card p-4">
         <h3 id="res-title" class="fw-bold">Match Result Statistics</h3>
+        <div id="res-final-score"></div>
         <div class="row my-4 text-center">
           <div class="col-md-6 mb-2"><div class="p-3 bg-light border rounded"><h6>No Of Predictions</h6><h2 id="res-total" class="fw-bold text-primary">0</h2></div></div>
           <div class="col-md-6 mb-2"><div class="p-3 bg-light border rounded"><h6>Solo Unique Predictions</h6><h2 id="res-solo" class="fw-bold text-warning">0</h2></div></div>
@@ -832,6 +835,25 @@
       const match = globalMatches.find(x => x.game_id === gId);
       const beforeDeadline = new Date() < new Date(match.deadline);
 
+      // --- Final score banner (flags + score), shown whenever the match has a logged final result ---
+      const finalScoreEl = document.getElementById('res-final-score');
+      if (match.team1_score !== null && match.team2_score !== null) {
+        finalScoreEl.innerHTML = `
+          <div class="final-score-banner">
+            <div class="final-score-team">
+              <img src="${match.flag1}" onerror="this.src='https://placehold.co/45x30?text=⚽'" class="flag-img mb-1"><br>
+              <span class="fw-semibold">${match.team1}</span>
+            </div>
+            <div class="final-score-num">${match.team1_score} - ${match.team2_score}</div>
+            <div class="final-score-team">
+              <img src="${match.flag2}" onerror="this.src='https://placehold.co/45x30?text=⚽'" class="flag-img mb-1"><br>
+              <span class="fw-semibold">${match.team2}</span>
+            </div>
+          </div>`;
+      } else {
+        finalScoreEl.innerHTML = "";
+      }
+
       if (!isAdminAuthenticated && beforeDeadline) {
         alert("System Lockout: Scoreboard analytics remain classified until match deadline.");
         return;
@@ -903,7 +925,7 @@
       });
 
       processedPreds.sort((a, b) => b.isWinner - a.isWinner).forEach(p => {
-        tbody.innerHTML += `<tr class="${p.isWinner ? 'winner-row' : ''}"><td class="fw-semibold">${p.displayName}</td><td><span class="badge bg-success">${p.team1_score} - ${p.team2_score}</span></td><td class="fw-bold">NPR ${Math.round(p.payoutValue)}</td></tr>`;
+        tbody.innerHTML += `<tr class="${p.isWinner ? 'winner-row' : ''}"><td class="fw-semibold">${p.displayName}</td><td><span class="badge bg-success">${p.team1_score} - ${p.team2_score}</span></td><td class="fw-bold">NPR ${p.payoutValue.toFixed(2)}</td></tr>`;
       });
 
       const adminPreviewSuffix = (isAdminAuthenticated && beforeDeadline) ? ' (Admin Preview — before deadline, not yet visible to players)' : '';
@@ -979,7 +1001,8 @@
       leaderboardArray.forEach((player, index) => {
         let rank = index + 1;
         if (index === 0) rank = "🥇"; if (index === 1) rank = "🥈"; if (index === 2) rank = "🥉";
-        tbody.innerHTML += `<tr><td class="fw-bold ps-4">${rank}</td><td class="fw-semibold">${player.name}</td><td><span class="badge bg-light text-success border border-success px-3">${player.wins} wins</span></td><td class="text-end fw-bold text-primary pe-4">NPR ${Math.round(player.totalPayout).toLocaleString()}</td></tr>`;
+        const formattedPayout = player.totalPayout.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        tbody.innerHTML += `<tr><td class="fw-bold ps-4">${rank}</td><td class="fw-semibold">${player.name}</td><td><span class="badge bg-light text-success border border-success px-3">${player.wins} wins</span></td><td class="text-end fw-bold text-primary pe-4">NPR ${formattedPayout}</td></tr>`;
       });
 
       showPage('leaderboard');
@@ -1056,10 +1079,36 @@
     }
 
     async function commitScoreFromFrontend(gId) {
-      const s1 = parseInt(document.getElementById(`adm-t1-${gId}`).value);
-      const s2 = parseInt(document.getElementById(`adm-t2-${gId}`).value);
-      await _supabase.from('matches').update({ team1_score: s1, team2_score: s2 }).eq('game_id', gId);
-      alert("Scores submitted successfully!");
+      const s1Raw = document.getElementById(`adm-t1-${gId}`).value;
+      const s2Raw = document.getElementById(`adm-t2-${gId}`).value;
+      const s1 = parseInt(s1Raw);
+      const s2 = parseInt(s2Raw);
+
+      if (s1Raw === "" || s2Raw === "" || isNaN(s1) || isNaN(s2)) {
+        alert("Please enter valid whole-number scores for both teams before updating.");
+        return;
+      }
+
+      if (!isAdminAuthenticated || !adminPinCache) {
+        alert("Your admin session has expired. Please log in again from the Admin Panel.");
+        return;
+      }
+
+      // Uses a security-definer RPC (verified server-side against the admin PIN) instead of a
+      // direct table update, since row-level security blocks anonymous writes to `matches`.
+      const { data, error } = await _supabase.rpc('update_match_score_admin', {
+        p_game_id: gId,
+        p_admin_pin: adminPinCache,
+        p_t1_score: s1,
+        p_t2_score: s2
+      });
+
+      if (error || data !== true) {
+        alert("❌ Failed to update score: " + (error ? error.message : "Unauthorized or match not found."));
+        return;
+      }
+
+      alert("✅ Scores submitted successfully!");
       await loadMatchCenter();
       renderAdminDashboard();
     }
@@ -1129,36 +1178,19 @@
         // Find the "Rank" column (if present on this tab) to highlight top 4 + last row as winners
         const rankColIndex = headers.findIndex(h => h.trim().toLowerCase() === 'rank');
 
-        // Find the "Round16_Count" column and determine its max value, to highlight the top row(s) distinctly
-        const round16ColIndex = headers.findIndex(h => h.trim().toLowerCase() === 'round16_count');
-        let maxRound16Value = null;
-        if (round16ColIndex !== -1) {
-          dataRows.forEach(row => {
-            const val = parseFloat((row[round16ColIndex] || '').trim());
-            if (!isNaN(val)) {
-              if (maxRound16Value === null || val > maxRound16Value) maxRound16Value = val;
-            }
-          });
-        }
-
         let html = "<table class='table table-striped table-bordered align-middle'><thead class='table-dark'><tr>";
         visibleIndexes.forEach(idx => html += `<th>${headers[idx]}</th>`);
         html += "</tr></thead><tbody>";
         dataRows.forEach((row, rowIdx) => {
-          let rowClasses = [];
+          let isWinnerRow = false;
 
           if (rankColIndex !== -1) {
             const rankVal = parseInt((row[rankColIndex] || '').trim());
-            if (!isNaN(rankVal) && rankVal >= 1 && rankVal <= 4) rowClasses.push('winner-row');
+            if (!isNaN(rankVal) && rankVal >= 1 && rankVal <= 4) isWinnerRow = true;
           }
-          if (rowIdx === dataRows.length - 1) rowClasses.push('winner-row'); // always highlight the last row
+          if (rowIdx === dataRows.length - 1) isWinnerRow = true; // always highlight the last row
 
-          if (round16ColIndex !== -1 && maxRound16Value !== null) {
-            const val = parseFloat((row[round16ColIndex] || '').trim());
-            if (!isNaN(val) && val === maxRound16Value) rowClasses.push('max-round16-row');
-          }
-
-          html += `<tr class="${rowClasses.join(' ')}">`;
+          html += `<tr class="${isWinnerRow ? 'winner-row' : ''}">`;
           visibleIndexes.forEach(idx => html += `<td>${row[idx] ?? ''}</td>`);
           html += "</tr>";
         });
