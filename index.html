@@ -193,6 +193,10 @@
             <label class="form-label fw-semibold">Fee (NPR)</label>
             <input type="number" id="new-match-fee" class="form-control" min="1" step="1" value="100" onkeydown="if(['.',',','-','+','e','E'].includes(event.key))event.preventDefault();">
           </div>
+          <div class="col-md-2">
+            <label class="form-label fw-semibold">Duration (mins)</label>
+            <input type="number" id="new-match-duration" class="form-control" min="1" step="1" value="120" onkeydown="if(['.',',','-','+','e','E'].includes(event.key))event.preventDefault();">
+          </div>
           <div class="col-md-1 d-flex align-items-end">
             <button class="btn btn-success w-100 fw-bold" onclick="createNewMatch()">Add</button>
           </div>
@@ -422,7 +426,7 @@
         container.innerHTML += `
           <div class="col-md-6 col-lg-4">
             <div class="card p-3">
-              <div class="d-flex justify-content-between align-items-center mb-2"><span class="badge ${m.status==='Open'?'badge-open':'badge-closed'}">${m.status}</span><small class="text-muted fw-bold">Game 120 mins, Fee: NPR ${m.fee}</small></div>
+              <div class="d-flex justify-content-between align-items-center mb-2"><span class="badge ${m.status==='Open'?'badge-open':'badge-closed'}">${m.status}</span><small class="text-muted fw-bold">Game ${m.duration != null ? m.duration : 120} mins, Fee: NPR ${m.fee}</small></div>
               <div class="d-flex align-items-center justify-content-between my-3 text-center">
                 <div style="width:40%;"><img src="${m.flag1}" onerror="this.src='https://placehold.co/45x30?text=⚽'" class="flag-img mb-1"><br><span class="fw-bold small d-block text-truncate">${m.team1}</span></div>
                 <div style="width:20%;"><span class="score-badge">${m.team1_score !== null ? m.team1_score : '-'} : ${m.team2_score !== null ? m.team2_score : '-'}</span></div>
@@ -1097,10 +1101,12 @@
       const team2 = document.getElementById('new-match-team2').value.trim();
       const deadlineRaw = document.getElementById('new-match-deadline').value;
       const fee = parseFloat(document.getElementById('new-match-fee').value);
+      const duration = parseInt(document.getElementById('new-match-duration').value);
 
       if (!team1 || !team2) { alert("Please enter both team names."); return; }
       if (!deadlineRaw) { alert("Please pick a prediction deadline."); return; }
       if (isNaN(fee) || fee <= 0) { alert("Please enter a valid entry fee."); return; }
+      if (isNaN(duration) || duration <= 0) { alert("Please enter a valid match duration in minutes."); return; }
 
       if (!isAdminAuthenticated || !adminPinCache) {
         alert("Your admin session has expired. Please log in again from the Admin Panel.");
@@ -1120,7 +1126,8 @@
         p_team1: team1,
         p_team2: team2,
         p_deadline: deadlineIso,
-        p_fee: fee
+        p_fee: fee,
+        p_duration: duration
       });
 
       if (error || data !== true) {
@@ -1133,6 +1140,7 @@
       document.getElementById('new-match-team2').value = "";
       document.getElementById('new-match-deadline').value = "";
       document.getElementById('new-match-fee').value = "100";
+      document.getElementById('new-match-duration').value = "120";
 
       await loadMatchCenter();
       renderAdminDashboard();
