@@ -343,6 +343,14 @@
     
     const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+    // --- API-Football config ---
+    // Get a free key at https://dashboard.api-football.com (no credit card needed).
+    // NOTE: this key will be visible in the page source, same as the Supabase anon key above.
+    // The free tier has a limited daily request quota, so live polling below is deliberately conservative.
+    const API_FOOTBALL_KEY = "5873606465d142f19bd798a6d70e32fd";
+    const API_FOOTBALL_HOST = "v3.football.api-sports.io";
+    let liveScorePollId = null;
+
     let globalMatches = [];
     let activeGameId = "";
     let currentFilterTab = "Open"; 
@@ -384,6 +392,56 @@
       };
       const code = flagMapping[cleanName] || cleanName.substring(0,2);
       return `https://flagcdn.com/w40/${code}.png`;
+    }
+
+    // Looks up a fixture on API-Football for the given teams on the given date (YYYY-MM-DD, UTC).
+    // Returns { status, elapsed, goalsHome, goalsAway, homeIsTeam1 } or null if nothing matched.
+    async function fetchApiFootballFixture(team1, team2, dateStr) {
+      if (!API_FOOTBALL_KEY || API_FOOTBALL_KEY === "YOUR_API_FOOTBALL_KEY_HERE") {
+        console.warn("API-Football key not set — skipping fetch.");
+        return null;
+      }
+      try {
+        const res = await fetch(`https://${API_FOOTBALL_HOST}/fixtures?date=${dateStr}`, {
+          headers: { "x-apisports-key": API_FOOTBALL_KEY }
+        });
+        const json = await res.json();
+        if (!json.response || json.response.length === 0) return null;
+
+        const norm = s => s.trim().toLowerCase();
+        const t1 = norm(team1), t2 = norm(team2);
+        const sameTeam = (a, b) => a.includes(b) || b.includes(a);
+
+        const fx = json.response.find(f => {
+          const home = norm(f.teams.home.name);
+          const away = norm(f.teams.away.name);
+          return (sameTeam(home, t1) && sameTeam(away, t2)) || (sameTeam(home, t2) && sameTeam(away, t1));
+        });
+        if (!fx) return null;
+
+        const homeIsTeam1 = sameTeam(norm(fx.teams.home.name), t1);
+        return {
+          status: fx.fixture.status.short,
+          elapsed: fx.fixture.status.elapsed,
+          homeTeam: fx.teams.home.name,
+          awayTeam: fx.teams.away.name,
+          goalsHome: fx.goals.home,
+          goalsAway: fx.goals.away,
+          homeIsTeam1: homeIsTeam1
+        };
+      } catch (err) {
+        console.error("API-Football fetch failed:", err);
+        return null;
+      }
+    }
+
+    // True while a match is presumed in progress: kickoff (deadline) has passed but its
+    // configured duration window hasn't elapsed yet. Deadline is used as a kickoff-time proxy.
+    function isMatchLive(m) {
+      const kickoff = new Date(m.deadline).getTime();
+      const now = Date.now();
+      const durationMs = (m.duration != null ? m.duration : 120) * 60000;
+      return now >= kickoff && now <= (kickoff + durationMs);
     }
 
     async function loadMatchCenter() {
@@ -439,6 +497,7 @@
                 <div style="width:20%;"><span class="score-badge">${m.team1_score !== null ? m.team1_score : '-'} : ${m.team2_score !== null ? m.team2_score : '-'}</span></div>
                 <div style="width:40%;"><img src="${m.flag2}" onerror="this.src='https://placehold.co/45x30?text=⚽'" class="flag-img mb-1"><br><span class="fw-bold small d-block text-truncate">${m.team2}</span></div>
               </div>
+              <div id="live-${m.game_id}" class="mb-1"></div>
               <div class="text-muted small mb-1">⏰ Deadline: <b>${m.formattedDeadline} (NPT)</b></div>
               ${countdownSpanHtml}
               <div class="text-muted small mb-3">📊 Submissions: <b>${m.predictionsCount}</b></div>
@@ -451,6 +510,38 @@
       });
 
       if (currentFilterTab === 'Open') startLiveCountdownTicker(filtered);
+      startLiveScorePoller();
+    }
+
+    function startLiveScorePoller() {
+      if (liveScorePollId) clearInterval(liveScorePollId);
+      pollLiveScoresOnce();
+      liveScorePollId = setInterval(pollLiveScoresOnce, 60000); // every 60s to stay within free-tier daily quota
+    }
+
+    async function pollLiveScoresOnce() {
+      const liveCandidates = globalMatches.filter(isMatchLive);
+      for (const m of liveCandidates) {
+        const badge = document.getElementById(`live-${m.game_id}`);
+        if (!badge) continue; // not currently rendered on this tab
+        const dateStr = new Date(m.deadline).toISOString().split('T')[0];
+        const result = await fetchApiFootballFixture(m.team1, m.team2, dateStr);
+        if (!result) { badge.innerHTML = ""; continue; }
+
+        const s1 = result.homeIsTeam1 ? result.goalsHome : result.goalsAway;
+        const s2 = result.homeIsTeam1 ? result.goalsAway : result.goalsHome;
+
+        if (s1 === null || s2 === null) {
+          badge.innerHTML = "";
+        } else if (result.status === "FT" || result.status === "AET" || result.status === "PEN") {
+          badge.innerHTML = `<span class="badge bg-dark">Full-time ${s1} - ${s2} (via API-Football)</span>`;
+        } else if (["1H", "2H", "HT", "ET", "P", "LIVE", "BT"].includes(result.status)) {
+          const minuteText = result.elapsed ? ` (${result.elapsed}')` : "";
+          badge.innerHTML = `<span class="badge bg-danger">🔴 LIVE ${s1} - ${s2}${minuteText}</span>`;
+        } else {
+          badge.innerHTML = "";
+        }
+      }
     }
 
     function startLiveCountdownTicker(openMatches) {
@@ -1170,9 +1261,44 @@
                 <input type="number" id="adm-t2-${m.game_id}" class="form-control form-control-sm text-center" style="width:60px;" value="${m.team2_score !== null ? m.team2_score : ''}" onkeydown="if(['.',',','-','+','e','E'].includes(event.key))event.preventDefault();">
               </div>
             </td>
-            <td><button class="btn btn-danger btn-sm fw-bold" onclick="commitScoreFromFrontend('${m.game_id}')">Update</button></td>
+            <td>
+              <div class="d-flex gap-1">
+                <button class="btn btn-outline-primary btn-sm fw-bold" id="adm-fetch-${m.game_id}" onclick="fetchAdminScoreSuggestion('${m.game_id}')">🔎 Fetch Score</button>
+                <button class="btn btn-danger btn-sm fw-bold" onclick="commitScoreFromFrontend('${m.game_id}')">Update</button>
+              </div>
+            </td>
           </tr>`;
       });
+    }
+
+    async function fetchAdminScoreSuggestion(gId) {
+      const m = globalMatches.find(x => x.game_id === gId);
+      if (!m) return;
+
+      const btn = document.getElementById(`adm-fetch-${gId}`);
+      if (btn) { btn.disabled = true; btn.textContent = "Fetching..."; }
+
+      const dateStr = new Date(m.deadline).toISOString().split('T')[0];
+      const result = await fetchApiFootballFixture(m.team1, m.team2, dateStr);
+
+      if (btn) { btn.disabled = false; btn.textContent = "🔎 Fetch Score"; }
+
+      if (!result) {
+        alert(`No matching fixture found on API-Football for ${m.team1} vs ${m.team2} on ${dateStr}.\n\nCheck that the API key is set and the team names/date are close to what API-Football uses.`);
+        return;
+      }
+
+      const s1 = result.homeIsTeam1 ? result.goalsHome : result.goalsAway;
+      const s2 = result.homeIsTeam1 ? result.goalsAway : result.goalsHome;
+
+      if (s1 === null || s2 === null) {
+        alert(`Fixture found (${result.homeTeam} vs ${result.awayTeam}) but no score is available yet.\nStatus: ${result.status}`);
+        return;
+      }
+
+      document.getElementById(`adm-t1-${gId}`).value = s1;
+      document.getElementById(`adm-t2-${gId}`).value = s2;
+      alert(`✅ Suggested score filled in: ${m.team1} ${s1} - ${s2} ${m.team2}\nStatus: ${result.status}\n\nReview it, then click "Update" to save it.`);
     }
 
     async function commitScoreFromFrontend(gId) {
