@@ -47,7 +47,7 @@
   </nav>
 
   <div class="container my-4">
-    
+
     <div id="page-home" class="page-view">
       <h2 class="mb-4 text-center text-dark fw-bold">Live Match Prediction Center</h2>
       <div class="d-flex justify-content-center gap-2 mb-4">
@@ -84,7 +84,7 @@
         <form id="prediction-form" onsubmit="triggerSubmissionConfirmation(event)">
           <input type="hidden" id="pred-gameId">
           <input type="hidden" id="pred-fee">
-          
+
           <div class="mb-3">
             <label class="form-label fw-semibold">Full Name</label>
             <input type="text" class="form-control" id="pred-name" required>
@@ -370,9 +370,9 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    const SUPABASE_URL = "https://glrczpyhppinotlssmrk.supabase.co"; 
+    const SUPABASE_URL = "https://glrczpyhppinotlssmrk.supabase.co";
     const SUPABASE_ANON_KEY = "sb_publishable_zLJKzsCkRQc97Ce-Rm4xxA_Ono7OlFa";
-    
+
     const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     // --- API-Football config ---
@@ -383,7 +383,8 @@
     const API_FOOTBALL_HOST = "v3.football.api-sports.io";
     let liveScorePollId = null;
 
-    // FIFA World Cup 2026 identifiers on API-Football (stable across the tournament)
+    // FIFA World Cup 2026 identifiers on API-Football (stable across the tournament).
+    // Confirmed against real API responses: league.id = 1, league.name = "World Cup", season = 2026.
     const WORLD_CUP_LEAGUE_ID = 1;
     const WORLD_CUP_SEASON = 2026;
     let fullScheduleCache = null; // cached fixture list, avoids refetching every time the page is opened
@@ -391,7 +392,7 @@
 
     let globalMatches = [];
     let activeGameId = "";
-    let currentFilterTab = "Open"; 
+    let currentFilterTab = "Open";
     let countdownIntervalId = null;
     let bootstrapModalInstance = null;
     let adminLoginModalInstance = null;
@@ -402,8 +403,8 @@
     let isAdminAuthenticated = false;
     let adminPinCache = null; // kept only in memory for the session, used to re-verify admin RPC calls server-side
 
-    window.onload = function() { 
-      loadMatchCenter(); 
+    window.onload = function() {
+      loadMatchCenter();
       bootstrapModalInstance = new bootstrap.Modal(document.getElementById('confirmationModal'));
       adminLoginModalInstance = new bootstrap.Modal(document.getElementById('adminLoginModal'));
       sheetPasswordModalInstance = new bootstrap.Modal(document.getElementById('sheetPasswordModal'));
@@ -424,12 +425,24 @@
     function getFlagUrl(countryName) {
       const cleanName = countryName.trim().toLowerCase();
       const flagMapping = {
-        "nepal": "np", "india": "in", "portugal": "pt", "brazil": "br", "argentina": "ar", 
+        "nepal": "np", "india": "in", "portugal": "pt", "brazil": "br", "argentina": "ar",
         "france": "fr", "spain": "es", "germany": "de", "england": "gb-eng", "croatia": "hr",
-        "cabo verde": "cv", "cape verde": "cv"
+        "cabo verde": "cv", "cape verde": "cv", "cape verde islands": "cv"
       };
       const code = flagMapping[cleanName] || cleanName.substring(0,2);
       return `https://flagcdn.com/w40/${code}.png`;
+    }
+
+    // Reads the API-Football "errors" field, which can come back as either an array
+    // (e.g. []) or an object keyed by error type (e.g. { rateLimit: "..." }), and
+    // returns a human-readable string, or "" if there's no error.
+    function extractApiFootballError(json) {
+      if (!json || !json.errors) return "";
+      if (Array.isArray(json.errors)) {
+        return json.errors.length > 0 ? json.errors.join(', ') : "";
+      }
+      const values = Object.values(json.errors);
+      return values.length > 0 ? values.join(', ') : "";
     }
 
     // Looks up a fixture on API-Football for the given teams on the given date (YYYY-MM-DD, UTC).
@@ -439,22 +452,44 @@
         console.warn("API-Football key not set — skipping fetch.");
         return null;
       }
-      try {
-        const res = await fetch(`https://${API_FOOTBALL_HOST}/fixtures?date=${dateStr}`, {
+
+      const norm = s => s.trim().toLowerCase();
+      const t1 = norm(team1), t2 = norm(team2);
+      const sameTeam = (a, b) => a.includes(b) || b.includes(a);
+
+      async function queryFixturesForDate(extraParams) {
+        const res = await fetch(`https://${API_FOOTBALL_HOST}/fixtures?date=${dateStr}${extraParams}`, {
           headers: { "x-apisports-key": API_FOOTBALL_KEY }
         });
         const json = await res.json();
-        if (!json.response || json.response.length === 0) return null;
+        const errText = extractApiFootballError(json);
+        if (errText) {
+          console.error("API-Football /fixtures error:", errText);
+          return [];
+        }
+        return json.response || [];
+      }
 
-        const norm = s => s.trim().toLowerCase();
-        const t1 = norm(team1), t2 = norm(team2);
-        const sameTeam = (a, b) => a.includes(b) || b.includes(a);
-
-        const fx = json.response.find(f => {
+      function findMatch(fixtures) {
+        return fixtures.find(f => {
           const home = norm(f.teams.home.name);
           const away = norm(f.teams.away.name);
           return (sameTeam(home, t1) && sameTeam(away, t2)) || (sameTeam(home, t2) && sameTeam(away, t1));
         });
+      }
+
+      try {
+        // Prefer matches inside the World Cup league/season (this is what the app tracks),
+        // since a date-only search returns EVERY match played that day across every
+        // competition worldwide and could otherwise match the wrong "Colombia" or "Congo".
+        let fx = findMatch(await queryFixturesForDate(`&league=${WORLD_CUP_LEAGUE_ID}&season=${WORLD_CUP_SEASON}`));
+
+        // Fall back to an unrestricted date search only if nothing turned up in the World
+        // Cup results — this keeps support for admin-added non-WC friendlies working too.
+        if (!fx) {
+          fx = findMatch(await queryFixturesForDate(''));
+        }
+
         if (!fx) return null;
 
         const homeIsTeam1 = sameTeam(norm(fx.teams.home.name), t1);
@@ -485,7 +520,7 @@
     async function loadMatchCenter() {
       const { data: matches, error: mErr } = await _supabase.from('matches').select('*');
       const { data: counts_raw, error: pErr } = await _supabase.from('public_prediction_counts').select('*');
-      
+
       if (mErr) return;
 
       let counts = {};
@@ -493,11 +528,11 @@
 
       globalMatches = (matches || []).map(m => {
         const deadlineDate = new Date(m.deadline);
-        let formattedDeadline = m.deadline; 
+        let formattedDeadline = m.deadline;
         try {
           formattedDeadline = deadlineDate.toLocaleString('en-US', { timeZone: 'Asia/Kathmandu', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
         } catch(e) {}
-        
+
         return {
           ...m,
           status: (new Date() > deadlineDate) ? "Closed" : "Open",
@@ -583,7 +618,7 @@
       }
     }
 
-    // ---------- Full Schedule (all 104 WC 2026 fixtures) ----------
+    // ---------- Full Schedule (all World Cup 2026 fixtures) ----------
 
     function openFullSchedulePage() {
       showPage('fullschedule');
@@ -609,17 +644,33 @@
       containerEl.innerHTML = "";
 
       try {
-        const res = await fetch(`https://${API_FOOTBALL_HOST}/fixtures?league=${WORLD_CUP_LEAGUE_ID}&season=${WORLD_CUP_SEASON}`, {
-          headers: { "x-apisports-key": API_FOOTBALL_KEY }
-        });
-        const json = await res.json();
+        // The /fixtures endpoint paginates results (see the "paging" block on every
+        // API-Football response). The World Cup has 104 total fixtures, which can span
+        // more than one page, so we walk every page and merge the results together.
+        let allFixtures = [];
+        let page = 1;
+        let totalPages = 1;
 
-        if (!json.response || json.response.length === 0) {
+        do {
+          const res = await fetch(`https://${API_FOOTBALL_HOST}/fixtures?league=${WORLD_CUP_LEAGUE_ID}&season=${WORLD_CUP_SEASON}&page=${page}`, {
+            headers: { "x-apisports-key": API_FOOTBALL_KEY }
+          });
+          const json = await res.json();
+
+          const errText = extractApiFootballError(json);
+          if (errText) throw new Error(errText);
+
+          allFixtures = allFixtures.concat(json.response || []);
+          totalPages = (json.paging && json.paging.total) ? json.paging.total : 1;
+          page++;
+        } while (page <= totalPages);
+
+        if (allFixtures.length === 0) {
           statusEl.innerHTML = `<p class="text-muted text-center">No fixtures published yet for the 2026 World Cup.</p>`;
           return;
         }
 
-        fullScheduleCache = json.response.slice().sort((a, b) => new Date(a.fixture.date) - new Date(b.fixture.date));
+        fullScheduleCache = allFixtures.slice().sort((a, b) => new Date(a.fixture.date) - new Date(b.fixture.date));
         renderFullSchedule(fullScheduleCache);
       } catch (err) {
         statusEl.innerHTML = `<p class="text-danger text-center">Failed to load schedule: ${err.message}</p>`;
@@ -632,13 +683,14 @@
       statusEl.classList.add('d-none');
 
       let html = `<table class="table table-striped table-bordered align-middle">
-        <thead class="table-dark"><tr><th>#</th><th>Match</th><th>Date & Time (NPT)</th><th>Venue</th><th>Status</th></tr></thead><tbody>`;
+        <thead class="table-dark"><tr><th>#</th><th>Match</th><th>Round</th><th>Date & Time (NPT)</th><th>Venue</th><th>Status</th></tr></thead><tbody>`;
 
       fixtures.forEach((fx, idx) => {
         const npt = new Date(fx.fixture.date).toLocaleString('en-US', {
           timeZone: 'Asia/Kathmandu', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true
         });
         const venue = fx.fixture.venue && fx.fixture.venue.name ? `${fx.fixture.venue.name}${fx.fixture.venue.city ? ', ' + fx.fixture.venue.city : ''}` : '—';
+        const round = (fx.league && fx.league.round) ? fx.league.round : '—';
         const statusShort = fx.fixture.status.short;
         let statusLabel = statusShort;
         let scoreText = "";
@@ -650,11 +702,16 @@
           statusLabel = "Live";
         } else if (statusShort === "NS") {
           statusLabel = "Not Started";
+        } else if (statusShort === "PST") {
+          statusLabel = "Postponed";
+        } else if (statusShort === "CANC") {
+          statusLabel = "Cancelled";
         }
 
         html += `<tr>
           <td>${idx + 1}</td>
           <td class="fw-semibold">${fx.teams.home.name} vs ${fx.teams.away.name}${scoreText}</td>
+          <td>${round}</td>
           <td>${npt}</td>
           <td>${venue}</td>
           <td>${statusLabel}</td>
@@ -669,17 +726,26 @@
 
     async function ensureTeamIdMap() {
       if (teamIdMap) return teamIdMap;
-      teamIdMap = {};
+      const freshMap = {};
       try {
         const res = await fetch(`https://${API_FOOTBALL_HOST}/teams?league=${WORLD_CUP_LEAGUE_ID}&season=${WORLD_CUP_SEASON}`, {
           headers: { "x-apisports-key": API_FOOTBALL_KEY }
         });
         const json = await res.json();
+
+        const errText = extractApiFootballError(json);
+        if (errText) {
+          console.error("API-Football /teams error:", errText);
+          return {}; // don't cache a broken/empty map — allow a retry on the next call
+        }
+
         (json.response || []).forEach(t => {
-          teamIdMap[t.team.name.trim().toLowerCase()] = t.team.id;
+          freshMap[t.team.name.trim().toLowerCase()] = t.team.id;
         });
+        teamIdMap = freshMap;
       } catch (err) {
         console.error("Failed to load WC team list:", err);
+        return {};
       }
       return teamIdMap;
     }
@@ -721,13 +787,22 @@
         });
         const json = await res.json();
 
+        const errText = extractApiFootballError(json);
+        if (errText) {
+          bodyEl.innerHTML = `<p class="text-danger">API-Football error: ${errText}</p>`;
+          return;
+        }
+
         if (!json.response || json.response.length === 0) {
           bodyEl.innerHTML = `<p class="text-muted">No previous meetings found between ${m.team1} and ${m.team2}.</p>`;
           return;
         }
 
-        let html = `<p class="text-muted small mb-2">Last ${json.response.length} meeting(s):</p><ul class="list-group">`;
-        json.response.forEach(fx => {
+        // Show the most recent meeting first.
+        const meetings = json.response.slice().sort((a, b) => new Date(b.fixture.date) - new Date(a.fixture.date));
+
+        let html = `<p class="text-muted small mb-2">Last ${meetings.length} meeting(s):</p><ul class="list-group">`;
+        meetings.forEach(fx => {
           const dateStr = new Date(fx.fixture.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
           const scoreText = (fx.goals.home !== null && fx.goals.away !== null) ? `${fx.goals.home} - ${fx.goals.away}` : fx.fixture.status.short;
           html += `<li class="list-group-item d-flex justify-content-between align-items-center">
@@ -807,7 +882,7 @@
 
     function triggerSubmissionConfirmation(e) {
       e.preventDefault();
-      
+
       const rawScore1 = document.getElementById('pred-t1-score').value;
       const rawScore2 = document.getElementById('pred-t2-score').value;
       if (rawScore1.includes('.') || rawScore2.includes('.')) {
@@ -829,7 +904,7 @@
       }
 
       const match = globalMatches.find(x => x.game_id === document.getElementById('pred-gameId').value);
-      
+
       temporaryPayloadCache = {
         game_id: match.game_id,
         fee: parseFloat(document.getElementById('pred-fee').value),
@@ -949,8 +1024,8 @@
     }
 
     function generateHighEntropyToken() {
-      const uppers = "ABCDEFGHJKLMNPQRSTUVWXYZ"; 
-      const lowers = "abcdefghijkmnopqrstuvwxyz"; 
+      const uppers = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+      const lowers = "abcdefghijkmnopqrstuvwxyz";
       const digits = "23456789";
       const specials = "@#$%&*!";
       const collectiveAll = uppers + lowers + digits + specials;
@@ -972,13 +1047,13 @@
     async function processDraftTokens() {
       const targetMatch = document.getElementById('adm-gen-match-id').value;
       const amountToGenerate = parseInt(document.getElementById('adm-gen-qty').value);
-      
+
       if(isNaN(amountToGenerate) || amountToGenerate < 1) return;
 
       pendingDraftVouchersArray = [];
       const previewZone = document.getElementById('adm-vouchers-preview-zone');
       const pillsContainer = document.getElementById('adm-preview-pills');
-      
+
       pillsContainer.innerHTML = "";
 
       for(let i=0; i < amountToGenerate; i++) {
@@ -997,7 +1072,7 @@
 
     async function commitVouchersToCloud() {
       if(pendingDraftVouchersArray.length === 0) return;
-      
+
       const proceed = confirm(`Are you sure you want to permanently authorize these ${pendingDraftVouchersArray.length} secure tokens for this game?`);
       if(!proceed) return;
 
@@ -1019,9 +1094,9 @@
       const mId = document.getElementById('adm-view-voucher-match-id').value;
       const renderArea = document.getElementById('active-voucher-pool-render');
       const copyAllBtn = document.getElementById('btn-copy-all-unused');
-      
+
       renderArea.innerHTML = "<small class='text-muted'>Querying verification logs...</small>";
-      currentUnusedVouchersCache = []; 
+      currentUnusedVouchersCache = [];
       if(copyAllBtn) copyAllBtn.disabled = true;
 
       const { data, error } = await _supabase
@@ -1040,7 +1115,7 @@
       }
 
       renderArea.innerHTML = "";
-      
+
       data.forEach(v => {
         if (!v.is_used) {
           currentUnusedVouchersCache.push(v.voucher_code);
@@ -1048,13 +1123,13 @@
 
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = v.is_used 
-          ? 'btn btn-sm btn-danger text-white opacity-50 me-2 mb-2 font-monospace' 
+        btn.className = v.is_used
+          ? 'btn btn-sm btn-danger text-white opacity-50 me-2 mb-2 font-monospace'
           : 'btn btn-sm btn-light text-dark border-success border me-2 mb-2 font-monospace';
-        
+
         btn.textContent = v.voucher_code;
         btn.title = v.is_used ? 'Consumed' : 'Active - Click to copy';
-        
+
         if (v.is_used) {
           btn.disabled = true;
         } else {
@@ -1062,7 +1137,7 @@
             copyTokenToClipboard(v.voucher_code, btn);
           };
         }
-        
+
         renderArea.appendChild(btn);
       });
 
@@ -1107,7 +1182,7 @@
       const originalLabel = element.textContent;
       element.textContent = `Copied ${currentUnusedVouchersCache.length} Keys! ✓`;
       element.className = "btn btn-success btn-sm fw-bold";
-      
+
       setTimeout(() => {
         element.textContent = originalLabel;
         element.className = "btn btn-dark btn-sm fw-bold";
@@ -1141,7 +1216,7 @@
       const originalText = element.textContent;
       element.textContent = "Copied! ✓";
       element.className = "btn btn-sm btn-success text-white me-2 mb-2 font-monospace";
-      
+
       setTimeout(() => {
         element.textContent = originalText;
         element.className = "btn btn-sm btn-light text-dark border-success border me-2 mb-2 font-monospace";
