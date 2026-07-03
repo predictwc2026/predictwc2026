@@ -528,6 +528,7 @@
         if (!gamesRes.ok) throw new Error(`Server returned ${gamesRes.status}`);
         const gamesData = await gamesRes.json();
         scheduleGames = Array.isArray(gamesData) ? gamesData : (gamesData.games || []);
+        scheduleGames.forEach(m => { m._nptEpoch = getNptEpoch(m.local_date); });
         scheduleGames.sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
 
         scheduleStadiumsMap = {};
@@ -565,27 +566,64 @@
       return stageMap[m.type] || (m.type ? m.type.toUpperCase() : 'Match');
     }
 
-    function formatScheduleDate(dateStr) {
-      if (!dateStr) return 'Date TBD';
+    function parseScheduleDate(dateStr) {
+      if (!dateStr) return null;
       try {
         const [datePart, timePart] = dateStr.split(' ');
         const [mm, dd, yyyy] = datePart.split('/');
         const [hh, min] = (timePart || '00:00').split(':');
         const d = new Date(yyyy, mm - 1, dd, hh, min);
-        if (isNaN(d.getTime())) return dateStr;
-        return d.toLocaleString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
+        return isNaN(d.getTime()) ? null : d;
       } catch (e) {
-        return dateStr;
+        return null;
       }
+    }
+
+    // The worldcup26.ir API returns local_date/persian_date as matching wall-clock values with
+    // no explicit UTC offset. Since the API is Iran-based and mirrors an Iran Persian-calendar
+    // date onto the same clock time, we treat local_date as Iran Standard Time (UTC+3:30, fixed,
+    // no DST) and convert it to Nepal Time (UTC+5:45, fixed) — a constant +2h15m shift.
+    const SOURCE_UTC_OFFSET_MIN = 3 * 60 + 30; // Iran Standard Time
+    const NPT_UTC_OFFSET_MIN = 5 * 60 + 45;    // Nepal Time
+
+    function getNptEpoch(dateStr) {
+      if (!dateStr) return null;
+      const [datePart, timePart] = dateStr.split(' ');
+      const [mm, dd, yyyy] = datePart.split('/').map(Number);
+      const [hh, min] = (timePart || '00:00').split(':').map(Number);
+      if (!yyyy || !mm || !dd) return null;
+      const trueUtcMillis = Date.UTC(yyyy, mm - 1, dd, hh, min) - SOURCE_UTC_OFFSET_MIN * 60000;
+      return trueUtcMillis + NPT_UTC_OFFSET_MIN * 60000; // epoch whose UTC getters equal NPT wall-clock time
+    }
+
+    function formatScheduleDate(dateStr) {
+      const epoch = getNptEpoch(dateStr);
+      if (epoch === null || isNaN(epoch)) return dateStr || 'Date TBD';
+      const d = new Date(epoch);
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const wd = days[d.getUTCDay()];
+      const mo = months[d.getUTCMonth()];
+      const day = d.getUTCDate();
+      const yr = d.getUTCFullYear();
+      let h = d.getUTCHours();
+      const mi = d.getUTCMinutes().toString().padStart(2, '0');
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      h = h % 12; if (h === 0) h = 12;
+      return `${wd}, ${mo} ${day}, ${yr}, ${h}:${mi} ${ampm} NPT`;
     }
 
     function renderScheduleDashboard() {
       const container = document.getElementById('schedule-container');
       container.innerHTML = "";
 
-      let filtered = scheduleGames;
-      if (scheduleFilterTab === 'Completed') filtered = scheduleGames.filter(m => m.finished === 'TRUE');
-      else if (scheduleFilterTab === 'Upcoming') filtered = scheduleGames.filter(m => m.finished !== 'TRUE');
+      const upcoming = scheduleGames.filter(m => m.finished !== 'TRUE').sort((a, b) => (a._nptEpoch || 0) - (b._nptEpoch || 0));
+      const completed = scheduleGames.filter(m => m.finished === 'TRUE').sort((a, b) => (b._nptEpoch || 0) - (a._nptEpoch || 0));
+
+      let filtered = [];
+      if (scheduleFilterTab === 'Completed') filtered = completed;
+      else if (scheduleFilterTab === 'Upcoming') filtered = upcoming;
+      else filtered = [...upcoming, ...completed]; // upcoming first (soonest first), then completed (most recent first)
 
       if (filtered.length === 0) {
         container.innerHTML = `<div class="col-12 text-center text-muted p-5"><h5>No matching fixtures found.</h5></div>`;
