@@ -38,6 +38,7 @@
       <a class="navbar-brand fw-bold" href="#" onclick="showPage('home')">🏆 World Cup Predictor</a>
       <div class="navbar-nav ms-auto d-flex flex-row gap-3">
         <a class="nav-link text-white fw-semibold" href="#" onclick="showPage('home')">Fixtures</a>
+        <a class="nav-link text-white fw-semibold" href="#" onclick="openFullSchedulePage()">Full Schedule</a>
         <a class="nav-link text-white fw-semibold" href="#" onclick="promptLeaderboardAuth()">Leaderboard</a>
         <a class="nav-link text-white fw-semibold" href="#" onclick="openMyPredictionsPage()">My Vault</a>
         <a class="nav-link text-white fw-semibold" href="#" onclick="triggerSheetAuth()">Tournament Results</a>
@@ -59,6 +60,20 @@
           <p class="mt-2">Connecting to Live Server Matrix...</p>
         </div>
       </div>
+    </div>
+
+    <div id="page-fullschedule" class="page-view d-none">
+      <button class="btn btn-secondary mb-3" onclick="showPage('home')">← Back to Fixtures</button>
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="fw-bold mb-0">🗓️ FIFA World Cup 2026 — Full Schedule</h3>
+        <button class="btn btn-outline-primary btn-sm fw-bold" onclick="loadFullSchedule(true)">🔄 Refresh</button>
+      </div>
+      <p class="text-muted">All times shown in Nepal Time (NPT).</p>
+      <div id="fullschedule-status" class="text-center p-4">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-2">Loading World Cup 2026 fixtures from API-Football...</p>
+      </div>
+      <div id="fullschedule-table-container" class="table-responsive"></div>
     </div>
 
     <div id="page-predict" class="page-view d-none">
@@ -334,6 +349,23 @@
     </div>
   </div>
 
+  <div class="modal fade" id="formGuideModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold" id="formGuideTitle">📊 Form Guide</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" id="formGuideBody">
+          <div class="text-center p-3"><div class="spinner-border text-primary" role="status"></div></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <footer class="text-center my-5 text-muted"><small><a href="#" class="text-decoration-none text-secondary" onclick="triggerAdminAuth()">🛠️ Open Admin Panel</a></small></footer>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -350,6 +382,12 @@
     const API_FOOTBALL_KEY = "5873606465d142f19bd798a6d70e32fd";
     const API_FOOTBALL_HOST = "v3.football.api-sports.io";
     let liveScorePollId = null;
+
+    // FIFA World Cup 2026 identifiers on API-Football (stable across the tournament)
+    const WORLD_CUP_LEAGUE_ID = 1;
+    const WORLD_CUP_SEASON = 2026;
+    let fullScheduleCache = null; // cached fixture list, avoids refetching every time the page is opened
+    let teamIdMap = null; // lowercase team name -> API-Football team id, built once from the 48 WC teams
 
     let globalMatches = [];
     let activeGameId = "";
@@ -505,6 +543,7 @@
                 <button class="btn btn-primary btn-sm flex-fill fw-bold" ${m.status==='Closed'?'disabled':''} id="btn-apply-${m.game_id}" onclick="openPredictPage('${m.game_id}')">Apply Now</button>
                 <button class="btn btn-secondary btn-sm flex-fill fw-bold" onclick="openResultsPage('${m.game_id}')">Results</button>
               </div>
+              <button class="btn btn-outline-dark btn-sm w-100 fw-bold mt-2" onclick="showFormGuide('${m.game_id}')">📊 Form Guide</button>
             </div>
           </div>`;
       });
@@ -541,6 +580,166 @@
         } else {
           badge.innerHTML = "";
         }
+      }
+    }
+
+    // ---------- Full Schedule (all 104 WC 2026 fixtures) ----------
+
+    function openFullSchedulePage() {
+      showPage('fullschedule');
+      loadFullSchedule(false);
+    }
+
+    async function loadFullSchedule(forceRefresh) {
+      const statusEl = document.getElementById('fullschedule-status');
+      const containerEl = document.getElementById('fullschedule-table-container');
+
+      if (fullScheduleCache && !forceRefresh) {
+        renderFullSchedule(fullScheduleCache);
+        return;
+      }
+
+      if (!API_FOOTBALL_KEY || API_FOOTBALL_KEY === "YOUR_API_FOOTBALL_KEY_HERE") {
+        statusEl.innerHTML = `<p class="text-danger text-center">API-Football key is not set — cannot load the schedule.</p>`;
+        return;
+      }
+
+      statusEl.classList.remove('d-none');
+      statusEl.innerHTML = `<div class="spinner-border text-primary" role="status"></div><p class="mt-2">Loading World Cup 2026 fixtures from API-Football...</p>`;
+      containerEl.innerHTML = "";
+
+      try {
+        const res = await fetch(`https://${API_FOOTBALL_HOST}/fixtures?league=${WORLD_CUP_LEAGUE_ID}&season=${WORLD_CUP_SEASON}`, {
+          headers: { "x-apisports-key": API_FOOTBALL_KEY }
+        });
+        const json = await res.json();
+
+        if (!json.response || json.response.length === 0) {
+          statusEl.innerHTML = `<p class="text-muted text-center">No fixtures published yet for the 2026 World Cup.</p>`;
+          return;
+        }
+
+        fullScheduleCache = json.response.slice().sort((a, b) => new Date(a.fixture.date) - new Date(b.fixture.date));
+        renderFullSchedule(fullScheduleCache);
+      } catch (err) {
+        statusEl.innerHTML = `<p class="text-danger text-center">Failed to load schedule: ${err.message}</p>`;
+      }
+    }
+
+    function renderFullSchedule(fixtures) {
+      const statusEl = document.getElementById('fullschedule-status');
+      const containerEl = document.getElementById('fullschedule-table-container');
+      statusEl.classList.add('d-none');
+
+      let html = `<table class="table table-striped table-bordered align-middle">
+        <thead class="table-dark"><tr><th>#</th><th>Match</th><th>Date & Time (NPT)</th><th>Venue</th><th>Status</th></tr></thead><tbody>`;
+
+      fixtures.forEach((fx, idx) => {
+        const npt = new Date(fx.fixture.date).toLocaleString('en-US', {
+          timeZone: 'Asia/Kathmandu', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true
+        });
+        const venue = fx.fixture.venue && fx.fixture.venue.name ? `${fx.fixture.venue.name}${fx.fixture.venue.city ? ', ' + fx.fixture.venue.city : ''}` : '—';
+        const statusShort = fx.fixture.status.short;
+        let statusLabel = statusShort;
+        let scoreText = "";
+        if (statusShort === "FT" || statusShort === "AET" || statusShort === "PEN") {
+          scoreText = ` (${fx.goals.home} - ${fx.goals.away})`;
+          statusLabel = "Finished";
+        } else if (["1H", "2H", "HT", "ET", "P", "LIVE", "BT"].includes(statusShort)) {
+          scoreText = ` (${fx.goals.home ?? 0} - ${fx.goals.away ?? 0})`;
+          statusLabel = "Live";
+        } else if (statusShort === "NS") {
+          statusLabel = "Not Started";
+        }
+
+        html += `<tr>
+          <td>${idx + 1}</td>
+          <td class="fw-semibold">${fx.teams.home.name} vs ${fx.teams.away.name}${scoreText}</td>
+          <td>${npt}</td>
+          <td>${venue}</td>
+          <td>${statusLabel}</td>
+        </tr>`;
+      });
+
+      html += "</tbody></table>";
+      containerEl.innerHTML = html;
+    }
+
+    // ---------- Form Guide (head-to-head history) ----------
+
+    async function ensureTeamIdMap() {
+      if (teamIdMap) return teamIdMap;
+      teamIdMap = {};
+      try {
+        const res = await fetch(`https://${API_FOOTBALL_HOST}/teams?league=${WORLD_CUP_LEAGUE_ID}&season=${WORLD_CUP_SEASON}`, {
+          headers: { "x-apisports-key": API_FOOTBALL_KEY }
+        });
+        const json = await res.json();
+        (json.response || []).forEach(t => {
+          teamIdMap[t.team.name.trim().toLowerCase()] = t.team.id;
+        });
+      } catch (err) {
+        console.error("Failed to load WC team list:", err);
+      }
+      return teamIdMap;
+    }
+
+    function findTeamId(map, name) {
+      const norm = name.trim().toLowerCase();
+      if (map[norm] !== undefined) return map[norm];
+      const key = Object.keys(map).find(k => k.includes(norm) || norm.includes(k));
+      return key ? map[key] : null;
+    }
+
+    async function showFormGuide(gId) {
+      const m = globalMatches.find(x => x.game_id === gId);
+      if (!m) return;
+
+      document.getElementById('formGuideTitle').innerText = `📊 Form Guide: ${m.team1} vs ${m.team2}`;
+      const bodyEl = document.getElementById('formGuideBody');
+      bodyEl.innerHTML = `<div class="text-center p-3"><div class="spinner-border text-primary" role="status"></div></div>`;
+      const modal = new bootstrap.Modal(document.getElementById('formGuideModal'));
+      modal.show();
+
+      if (!API_FOOTBALL_KEY || API_FOOTBALL_KEY === "YOUR_API_FOOTBALL_KEY_HERE") {
+        bodyEl.innerHTML = `<p class="text-danger">API-Football key is not set.</p>`;
+        return;
+      }
+
+      const map = await ensureTeamIdMap();
+      const id1 = findTeamId(map, m.team1);
+      const id2 = findTeamId(map, m.team2);
+
+      if (!id1 || !id2) {
+        bodyEl.innerHTML = `<p class="text-muted">Couldn't resolve one or both team IDs on API-Football (${m.team1} / ${m.team2}). This can happen for teams not yet in the 2026 World Cup team list.</p>`;
+        return;
+      }
+
+      try {
+        const res = await fetch(`https://${API_FOOTBALL_HOST}/fixtures/headtohead?h2h=${id1}-${id2}&last=5`, {
+          headers: { "x-apisports-key": API_FOOTBALL_KEY }
+        });
+        const json = await res.json();
+
+        if (!json.response || json.response.length === 0) {
+          bodyEl.innerHTML = `<p class="text-muted">No previous meetings found between ${m.team1} and ${m.team2}.</p>`;
+          return;
+        }
+
+        let html = `<p class="text-muted small mb-2">Last ${json.response.length} meeting(s):</p><ul class="list-group">`;
+        json.response.forEach(fx => {
+          const dateStr = new Date(fx.fixture.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+          const scoreText = (fx.goals.home !== null && fx.goals.away !== null) ? `${fx.goals.home} - ${fx.goals.away}` : fx.fixture.status.short;
+          html += `<li class="list-group-item d-flex justify-content-between align-items-center">
+            <span>${fx.teams.home.name} vs ${fx.teams.away.name}</span>
+            <span class="fw-bold">${scoreText}</span>
+            <span class="text-muted small">${dateStr}</span>
+          </li>`;
+        });
+        html += "</ul>";
+        bodyEl.innerHTML = html;
+      } catch (err) {
+        bodyEl.innerHTML = `<p class="text-danger">Failed to load head-to-head data: ${err.message}</p>`;
       }
     }
 
