@@ -28,6 +28,7 @@
     .final-score-team { text-align: center; min-width: 100px; }
     .final-score-team .flag-img { width: 56px; height: 38px; }
     .final-score-num { font-size: 2.25rem; font-weight: 800; color: #0d6efd; }
+    .match-type-badge { display: inline-block; background-color: #f3e8ff; color: #3b0042; font-weight: 700; font-size: 0.78rem; letter-spacing: 0.03em; text-transform: uppercase; padding: 4px 14px; border-radius: 20px; }
   </style>
 </head>
 <body>
@@ -186,6 +187,10 @@
             <input type="text" id="new-match-team2" class="form-control" placeholder="e.g. Argentina">
           </div>
           <div class="col-md-3">
+            <label class="form-label fw-semibold">Match Type</label>
+            <input type="text" id="new-match-type" class="form-control" placeholder="e.g. Round of 16">
+          </div>
+          <div class="col-md-3">
             <label class="form-label fw-semibold">Deadline (NPT)</label>
             <input type="datetime-local" id="new-match-deadline" class="form-control">
           </div>
@@ -241,7 +246,7 @@
         <h4 class="fw-bold text-danger mb-4">🛡️ Match Official Score Logging</h4>
         <div class="table-responsive">
           <table class="table align-middle border">
-            <thead class="table-dark"><tr><th>Match Details</th><th>Enter Scores</th><th>Actions</th></tr></thead>
+            <thead class="table-dark"><tr><th>Match Details</th><th>Match Type</th><th>Enter Scores</th><th>Actions</th></tr></thead>
             <tbody id="admin-table-body"></tbody>
           </table>
         </div>
@@ -427,6 +432,7 @@
           <div class="col-md-6 col-lg-4">
             <div class="card p-3">
               <div class="d-flex justify-content-between align-items-center mb-2"><span class="badge ${m.status==='Open'?'badge-open':'badge-closed'}">${m.status}</span><small class="text-muted fw-bold">Game ${m.duration != null ? m.duration : 120} mins, Fee: NPR ${m.fee}</small></div>
+              ${m.match_type ? `<div class="text-center mb-1"><span class="match-type-badge">${m.match_type}</span></div>` : ''}
               <div class="d-flex align-items-center justify-content-between my-3 text-center">
                 <div style="width:40%;"><img src="${m.flag1}" onerror="this.src='https://placehold.co/45x30?text=⚽'" class="flag-img mb-1"><br><span class="fw-bold small d-block text-truncate">${m.team1}</span></div>
                 <div style="width:20%;"><span class="score-badge">${m.team1_score !== null ? m.team1_score : '-'} : ${m.team2_score !== null ? m.team2_score : '-'}</span></div>
@@ -1099,6 +1105,7 @@
     async function createNewMatch() {
       const team1 = document.getElementById('new-match-team1').value.trim();
       const team2 = document.getElementById('new-match-team2').value.trim();
+      const matchType = document.getElementById('new-match-type').value.trim();
       const deadlineRaw = document.getElementById('new-match-deadline').value;
       const fee = parseFloat(document.getElementById('new-match-fee').value);
       const duration = parseInt(document.getElementById('new-match-duration').value);
@@ -1127,7 +1134,8 @@
         p_team2: team2,
         p_deadline: deadlineIso,
         p_fee: fee,
-        p_duration: duration
+        p_duration: duration,
+        p_match_type: matchType || null
       });
 
       if (error || data !== true) {
@@ -1138,6 +1146,7 @@
       alert(`✅ Match created!\nGame ID: ${gameId}`);
       document.getElementById('new-match-team1').value = "";
       document.getElementById('new-match-team2').value = "";
+      document.getElementById('new-match-type').value = "";
       document.getElementById('new-match-deadline').value = "";
       document.getElementById('new-match-fee').value = "100";
       document.getElementById('new-match-duration').value = "120";
@@ -1153,6 +1162,7 @@
         tbody.innerHTML += `
           <tr>
             <td><div class="fw-bold small">${m.team1} vs ${m.team2}</div></td>
+            <td><input type="text" id="adm-type-${m.game_id}" class="form-control form-control-sm" style="width:130px;" placeholder="e.g. Round of 16" value="${m.match_type ? m.match_type : ''}"></td>
             <td>
               <div class="d-flex gap-1 align-items-center">
                 <input type="number" id="adm-t1-${m.game_id}" class="form-control form-control-sm text-center" style="width:60px;" value="${m.team1_score !== null ? m.team1_score : ''}" onkeydown="if(['.',',','-','+','e','E'].includes(event.key))event.preventDefault();">
@@ -1169,6 +1179,7 @@
       const s2Raw = document.getElementById(`adm-t2-${gId}`).value;
       const s1 = parseInt(s1Raw);
       const s2 = parseInt(s2Raw);
+      const matchType = document.getElementById(`adm-type-${gId}`).value.trim();
 
       if (s1Raw === "" || s2Raw === "" || isNaN(s1) || isNaN(s2)) {
         alert("Please enter valid whole-number scores for both teams before updating.");
@@ -1186,7 +1197,8 @@
         p_game_id: gId,
         p_admin_pin: adminPinCache,
         p_t1_score: s1,
-        p_t2_score: s2
+        p_t2_score: s2,
+        p_match_type: matchType || null
       });
 
       if (error || data !== true) {
