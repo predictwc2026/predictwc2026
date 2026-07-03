@@ -445,6 +445,61 @@
       return values.length > 0 ? values.join(', ') : "";
     }
 
+    // Central fetch wrapper for every API-Football call. Instead of a generic failure
+    // message, this surfaces exactly *why* a call failed: exhausted daily quota, a 429
+    // rate-limit response, any other non-2xx HTTP status, or an API-level error payload.
+    // Also logs the remaining daily quota on every call so you can see it draining in
+    // the console (Network tab > any api-sports.io request > Response Headers works too).
+    async function apiFootballFetch(path) {
+      if (!API_FOOTBALL_KEY || API_FOOTBALL_KEY === "YOUR_API_FOOTBALL_KEY_HERE") {
+        return { data: null, error: "API-Football key is not set." };
+      }
+      try {
+        const res = await fetch(`https://${API_FOOTBALL_HOST}${path}`, {
+          headers: { "x-apisports-key": API_FOOTBALL_KEY }
+        });
+
+        const remaining = res.headers.get('x-ratelimit-requests-remaining');
+        const limit = res.headers.get('x-ratelimit-requests-limit');
+        if (remaining !== null) {
+          console.info(`[API-Football] quota: ${remaining}/${limit} requests remaining — call: ${path}`);
+          if (Number(remaining) <= 0) {
+            return { data: null, error: `Daily API-Football quota exhausted (0/${limit} requests remaining today). It resets 24h after your first call of the day — try again later, or upgrade your plan.` };
+          }
+        }
+
+        if (res.status === 429) {
+          return { data: null, error: "API-Football rate limit hit (HTTP 429 — too many requests per second/minute). Wait a moment and try again." };
+        }
+
+        if (res.status === 401 || res.status === 403) {
+          const bodyText = await res.text().catch(() => "");
+          console.error(`[API-Football] HTTP ${res.status} for ${path}:`, bodyText);
+          return { data: null, error: `API-Football rejected the request (HTTP ${res.status}) — check that the API key is valid and your plan includes this endpoint/season.` };
+        }
+
+        if (!res.ok) {
+          const bodyText = await res.text().catch(() => "");
+          console.error(`[API-Football] HTTP ${res.status} for ${path}:`, bodyText);
+          return { data: null, error: `API-Football returned HTTP ${res.status}. Full response logged to the console.` };
+        }
+
+        const json = await res.json();
+        console.debug(`[API-Football] response for ${path}:`, json);
+
+        const errText = extractApiFootballError(json);
+        if (errText) {
+          return { data: null, error: errText };
+        }
+
+        return { data: json, error: null };
+      } catch (err) {
+        // Typically a network failure or a blocked cross-origin request.
+        console.error(`[API-Football] fetch threw for ${path}:`, err);
+        return { data: null, error: `Network error contacting API-Football: ${err.message}. This can also happen if the request was blocked (ad blocker, CORS, offline).` };
+      }
+    }
+
     // Looks up a fixture on API-Football for the given teams on the given date (YYYY-MM-DD, UTC).
     // Returns { status, elapsed, goalsHome, goalsAway, homeIsTeam1 } or null if nothing matched.
     async function fetchApiFootballFixture(team1, team2, dateStr) {
@@ -458,16 +513,12 @@
       const sameTeam = (a, b) => a.includes(b) || b.includes(a);
 
       async function queryFixturesForDate(extraParams) {
-        const res = await fetch(`https://${API_FOOTBALL_HOST}/fixtures?date=${dateStr}${extraParams}`, {
-          headers: { "x-apisports-key": API_FOOTBALL_KEY }
-        });
-        const json = await res.json();
-        const errText = extractApiFootballError(json);
-        if (errText) {
-          console.error("API-Football /fixtures error:", errText);
+        const { data, error } = await apiFootballFetch(`/fixtures?date=${dateStr}${extraParams}`);
+        if (error) {
+          console.error("API-Football /fixtures error:", error);
           return [];
         }
-        return json.response || [];
+        return (data && data.response) || [];
       }
 
       function findMatch(fixtures) {
@@ -652,16 +703,11 @@
         let totalPages = 1;
 
         do {
-          const res = await fetch(`https://${API_FOOTBALL_HOST}/fixtures?league=${WORLD_CUP_LEAGUE_ID}&season=${WORLD_CUP_SEASON}&page=${page}`, {
-            headers: { "x-apisports-key": API_FOOTBALL_KEY }
-          });
-          const json = await res.json();
+          const { data, error } = await apiFootballFetch(`/fixtures?league=${WORLD_CUP_LEAGUE_ID}&season=${WORLD_CUP_SEASON}&page=${page}`);
+          if (error) throw new Error(error);
 
-          const errText = extractApiFootballError(json);
-          if (errText) throw new Error(errText);
-
-          allFixtures = allFixtures.concat(json.response || []);
-          totalPages = (json.paging && json.paging.total) ? json.paging.total : 1;
+          allFixtures = allFixtures.concat((data && data.response) || []);
+          totalPages = (data && data.paging && data.paging.total) ? data.paging.total : 1;
           page++;
         } while (page <= totalPages);
 
@@ -724,30 +770,28 @@
 
     // ---------- Form Guide (head-to-head history) ----------
 
+    // Returns { map, error }. `map` is {} on failure (never cached, so the next call retries);
+    // `error` carries the human-readable reason from apiFootballFetch when it fails.
     async function ensureTeamIdMap() {
-      if (teamIdMap) return teamIdMap;
-      const freshMap = {};
-      try {
-        const res = await fetch(`https://${API_FOOTBALL_HOST}/teams?league=${WORLD_CUP_LEAGUE_ID}&season=${WORLD_CUP_SEASON}`, {
-          headers: { "x-apisports-key": API_FOOTBALL_KEY }
-        });
-        const json = await res.json();
+      if (teamIdMap) return { map: teamIdMap, error: null };
 
-        const errText = extractApiFootballError(json);
-        if (errText) {
-          console.error("API-Football /teams error:", errText);
-          return {}; // don't cache a broken/empty map — allow a retry on the next call
-        }
-
-        (json.response || []).forEach(t => {
-          freshMap[t.team.name.trim().toLowerCase()] = t.team.id;
-        });
-        teamIdMap = freshMap;
-      } catch (err) {
-        console.error("Failed to load WC team list:", err);
-        return {};
+      const { data, error } = await apiFootballFetch(`/teams?league=${WORLD_CUP_LEAGUE_ID}&season=${WORLD_CUP_SEASON}`);
+      if (error) {
+        console.error("API-Football /teams error:", error);
+        return { map: {}, error };
       }
-      return teamIdMap;
+
+      const responseArr = (data && data.response) || [];
+      if (responseArr.length === 0) {
+        return { map: {}, error: "API-Football returned zero teams for league 1 / season 2026." };
+      }
+
+      const freshMap = {};
+      responseArr.forEach(t => {
+        freshMap[t.team.name.trim().toLowerCase()] = t.team.id;
+      });
+      teamIdMap = freshMap;
+      return { map: teamIdMap, error: null };
     }
 
     // Names the app/admins tend to type vs. the exact string API-Football uses on /teams.
@@ -795,12 +839,12 @@
         return;
       }
 
-      const map = await ensureTeamIdMap();
+      const { map, error: teamMapError } = await ensureTeamIdMap();
 
-      // An empty map almost always means the /teams request itself failed (quota, network,
-      // etc.) rather than a naming mismatch — surface that distinction clearly.
-      if (Object.keys(map).length === 0) {
-        bodyEl.innerHTML = `<p class="text-danger">Couldn't load the World Cup team list from API-Football right now (the request may have failed or hit your daily quota). Check the browser console for details and try again shortly.</p>`;
+      // A failed/empty map means the /teams request itself didn't succeed (quota, network,
+      // bad key, etc.) rather than a naming mismatch — surface the real reason, not a guess.
+      if (teamMapError) {
+        bodyEl.innerHTML = `<p class="text-danger">Couldn't load the World Cup team list from API-Football.<br><small>${teamMapError}</small></p>`;
         return;
       }
 
@@ -816,25 +860,23 @@
         return;
       }
 
+      const { data: h2hData, error: h2hError } = await apiFootballFetch(`/fixtures/headtohead?h2h=${id1}-${id2}&last=5`);
+
+      if (h2hError) {
+        bodyEl.innerHTML = `<p class="text-danger">API-Football error: ${h2hError}</p>`;
+        return;
+      }
+
+      const h2hResponse = (h2hData && h2hData.response) || [];
+
+      if (h2hResponse.length === 0) {
+        bodyEl.innerHTML = `<p class="text-muted">No previous meetings found between ${m.team1} and ${m.team2}.</p>`;
+        return;
+      }
+
       try {
-        const res = await fetch(`https://${API_FOOTBALL_HOST}/fixtures/headtohead?h2h=${id1}-${id2}&last=5`, {
-          headers: { "x-apisports-key": API_FOOTBALL_KEY }
-        });
-        const json = await res.json();
-
-        const errText = extractApiFootballError(json);
-        if (errText) {
-          bodyEl.innerHTML = `<p class="text-danger">API-Football error: ${errText}</p>`;
-          return;
-        }
-
-        if (!json.response || json.response.length === 0) {
-          bodyEl.innerHTML = `<p class="text-muted">No previous meetings found between ${m.team1} and ${m.team2}.</p>`;
-          return;
-        }
-
         // Show the most recent meeting first.
-        const meetings = json.response.slice().sort((a, b) => new Date(b.fixture.date) - new Date(a.fixture.date));
+        const meetings = h2hResponse.slice().sort((a, b) => new Date(b.fixture.date) - new Date(a.fixture.date));
 
         let html = `<p class="text-muted small mb-2">Last ${meetings.length} meeting(s):</p><ul class="list-group">`;
         meetings.forEach(fx => {
