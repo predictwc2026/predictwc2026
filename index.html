@@ -19,6 +19,8 @@
     .combo-pill { display: inline-block; background-color: #e9ecef; padding: 6px 12px; margin: 4px; border-radius: 20px; font-weight: 600; font-size: 0.9rem; }
     .winner-row { background-color: #fff9e6 !important; }
     .winner-row > td, .winner-row > th { background-color: #fff9e6 !important; }
+    .max-round16-row { background-color: #cfe2ff !important; }
+    .max-round16-row > td, .max-round16-row > th { background-color: #cfe2ff !important; }
     .filter-btn { border-radius: 20px; padding: 6px 20px; font-weight: 600; }
     .stat-card { border-radius: 12px; border: 1px solid #eef2f5; background: #fff; padding: 20px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.02); }
     .stat-val { font-size: 2rem; font-weight: bold; color: #0d6efd; }
@@ -1127,19 +1129,36 @@
         // Find the "Rank" column (if present on this tab) to highlight top 4 + last row as winners
         const rankColIndex = headers.findIndex(h => h.trim().toLowerCase() === 'rank');
 
+        // Find the "Round16_Count" column and determine its max value, to highlight the top row(s) distinctly
+        const round16ColIndex = headers.findIndex(h => h.trim().toLowerCase() === 'round16_count');
+        let maxRound16Value = null;
+        if (round16ColIndex !== -1) {
+          dataRows.forEach(row => {
+            const val = parseFloat((row[round16ColIndex] || '').trim());
+            if (!isNaN(val)) {
+              if (maxRound16Value === null || val > maxRound16Value) maxRound16Value = val;
+            }
+          });
+        }
+
         let html = "<table class='table table-striped table-bordered align-middle'><thead class='table-dark'><tr>";
         visibleIndexes.forEach(idx => html += `<th>${headers[idx]}</th>`);
         html += "</tr></thead><tbody>";
         dataRows.forEach((row, rowIdx) => {
-          let isWinnerRow = false;
+          let rowClasses = [];
 
           if (rankColIndex !== -1) {
             const rankVal = parseInt((row[rankColIndex] || '').trim());
-            if (!isNaN(rankVal) && rankVal >= 1 && rankVal <= 4) isWinnerRow = true;
+            if (!isNaN(rankVal) && rankVal >= 1 && rankVal <= 4) rowClasses.push('winner-row');
           }
-          if (rowIdx === dataRows.length - 1) isWinnerRow = true; // always highlight the last row
+          if (rowIdx === dataRows.length - 1) rowClasses.push('winner-row'); // always highlight the last row
 
-          html += `<tr class="${isWinnerRow ? 'winner-row' : ''}">`;
+          if (round16ColIndex !== -1 && maxRound16Value !== null) {
+            const val = parseFloat((row[round16ColIndex] || '').trim());
+            if (!isNaN(val) && val === maxRound16Value) rowClasses.push('max-round16-row');
+          }
+
+          html += `<tr class="${rowClasses.join(' ')}">`;
           visibleIndexes.forEach(idx => html += `<td>${row[idx] ?? ''}</td>`);
           html += "</tr>";
         });
