@@ -38,7 +38,6 @@
       <a class="navbar-brand fw-bold" href="#" onclick="showPage('home')">🏆 World Cup Predictor</a>
       <div class="navbar-nav ms-auto d-flex flex-row gap-3">
         <a class="nav-link text-white fw-semibold" href="#" onclick="showPage('home')">Fixtures</a>
-        <a class="nav-link text-white fw-semibold" href="#" onclick="openFullSchedulePage()">Full Schedule</a>
         <a class="nav-link text-white fw-semibold" href="#" onclick="promptLeaderboardAuth()">Leaderboard</a>
         <a class="nav-link text-white fw-semibold" href="#" onclick="openMyPredictionsPage()">My Vault</a>
         <a class="nav-link text-white fw-semibold" href="#" onclick="triggerSheetAuth()">Tournament Results</a>
@@ -47,7 +46,7 @@
   </nav>
 
   <div class="container my-4">
-
+    
     <div id="page-home" class="page-view">
       <h2 class="mb-4 text-center text-dark fw-bold">Live Match Prediction Center</h2>
       <div class="d-flex justify-content-center gap-2 mb-4">
@@ -62,20 +61,6 @@
       </div>
     </div>
 
-    <div id="page-fullschedule" class="page-view d-none">
-      <button class="btn btn-secondary mb-3" onclick="showPage('home')">← Back to Fixtures</button>
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <h3 class="fw-bold mb-0">🗓️ FIFA World Cup 2026 — Full Schedule</h3>
-        <button class="btn btn-outline-primary btn-sm fw-bold" onclick="loadFullSchedule(true)">🔄 Refresh</button>
-      </div>
-      <p class="text-muted">All times shown in Nepal Time (NPT).</p>
-      <div id="fullschedule-status" class="text-center p-4">
-        <div class="spinner-border text-primary" role="status"></div>
-        <p class="mt-2">Loading World Cup 2026 fixtures from API-Football...</p>
-      </div>
-      <div id="fullschedule-table-container" class="table-responsive"></div>
-    </div>
-
     <div id="page-predict" class="page-view d-none">
       <button class="btn btn-secondary mb-3" onclick="showPage('home')">← Back to Fixtures</button>
       <div class="card p-4 mx-auto" style="max-width: 600px;">
@@ -84,7 +69,7 @@
         <form id="prediction-form" onsubmit="triggerSubmissionConfirmation(event)">
           <input type="hidden" id="pred-gameId">
           <input type="hidden" id="pred-fee">
-
+          
           <div class="mb-3">
             <label class="form-label fw-semibold">Full Name</label>
             <input type="text" class="form-control" id="pred-name" required>
@@ -349,50 +334,18 @@
     </div>
   </div>
 
-  <div class="modal fade" id="formGuideModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title fw-bold" id="formGuideTitle">📊 Form Guide</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body" id="formGuideBody">
-          <div class="text-center p-3"><div class="spinner-border text-primary" role="status"></div></div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <footer class="text-center my-5 text-muted"><small><a href="#" class="text-decoration-none text-secondary" onclick="triggerAdminAuth()">🛠️ Open Admin Panel</a></small></footer>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    const SUPABASE_URL = "https://glrczpyhppinotlssmrk.supabase.co";
+    const SUPABASE_URL = "https://glrczpyhppinotlssmrk.supabase.co"; 
     const SUPABASE_ANON_KEY = "sb_publishable_zLJKzsCkRQc97Ce-Rm4xxA_Ono7OlFa";
-
+    
     const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-    // --- API-Football config ---
-    // Get a free key at https://dashboard.api-football.com (no credit card needed).
-    // NOTE: this key will be visible in the page source, same as the Supabase anon key above.
-    // The free tier has a limited daily request quota, so live polling below is deliberately conservative.
-    const API_FOOTBALL_KEY = "5873606465d142f19bd798a6d70e32fd";
-    const API_FOOTBALL_HOST = "v3.football.api-sports.io";
-    let liveScorePollId = null;
-
-    // FIFA World Cup 2026 identifiers on API-Football (stable across the tournament).
-    // Confirmed against real API responses: league.id = 1, league.name = "World Cup", season = 2026.
-    const WORLD_CUP_LEAGUE_ID = 1;
-    const WORLD_CUP_SEASON = 2026;
-    let fullScheduleCache = null; // cached fixture list, avoids refetching every time the page is opened
-    let teamIdMap = null; // lowercase team name -> API-Football team id, built once from the 48 WC teams
 
     let globalMatches = [];
     let activeGameId = "";
-    let currentFilterTab = "Open";
+    let currentFilterTab = "Open"; 
     let countdownIntervalId = null;
     let bootstrapModalInstance = null;
     let adminLoginModalInstance = null;
@@ -403,8 +356,8 @@
     let isAdminAuthenticated = false;
     let adminPinCache = null; // kept only in memory for the session, used to re-verify admin RPC calls server-side
 
-    window.onload = function() {
-      loadMatchCenter();
+    window.onload = function() { 
+      loadMatchCenter(); 
       bootstrapModalInstance = new bootstrap.Modal(document.getElementById('confirmationModal'));
       adminLoginModalInstance = new bootstrap.Modal(document.getElementById('adminLoginModal'));
       sheetPasswordModalInstance = new bootstrap.Modal(document.getElementById('sheetPasswordModal'));
@@ -425,153 +378,18 @@
     function getFlagUrl(countryName) {
       const cleanName = countryName.trim().toLowerCase();
       const flagMapping = {
-        "nepal": "np", "india": "in", "portugal": "pt", "brazil": "br", "argentina": "ar",
+        "nepal": "np", "india": "in", "portugal": "pt", "brazil": "br", "argentina": "ar", 
         "france": "fr", "spain": "es", "germany": "de", "england": "gb-eng", "croatia": "hr",
-        "cabo verde": "cv", "cape verde": "cv", "cape verde islands": "cv"
+        "cabo verde": "cv", "cape verde": "cv"
       };
       const code = flagMapping[cleanName] || cleanName.substring(0,2);
       return `https://flagcdn.com/w40/${code}.png`;
     }
 
-    // Reads the API-Football "errors" field, which can come back as either an array
-    // (e.g. []) or an object keyed by error type (e.g. { rateLimit: "..." }), and
-    // returns a human-readable string, or "" if there's no error.
-    function extractApiFootballError(json) {
-      if (!json || !json.errors) return "";
-      if (Array.isArray(json.errors)) {
-        return json.errors.length > 0 ? json.errors.join(', ') : "";
-      }
-      const values = Object.values(json.errors);
-      return values.length > 0 ? values.join(', ') : "";
-    }
-
-    // Central fetch wrapper for every API-Football call. Instead of a generic failure
-    // message, this surfaces exactly *why* a call failed: exhausted daily quota, a 429
-    // rate-limit response, any other non-2xx HTTP status, or an API-level error payload.
-    // Also logs the remaining daily quota on every call so you can see it draining in
-    // the console (Network tab > any api-sports.io request > Response Headers works too).
-    async function apiFootballFetch(path) {
-      if (!API_FOOTBALL_KEY || API_FOOTBALL_KEY === "YOUR_API_FOOTBALL_KEY_HERE") {
-        return { data: null, error: "API-Football key is not set." };
-      }
-      try {
-        const res = await fetch(`https://${API_FOOTBALL_HOST}${path}`, {
-          headers: { "x-apisports-key": API_FOOTBALL_KEY }
-        });
-
-        const remaining = res.headers.get('x-ratelimit-requests-remaining');
-        const limit = res.headers.get('x-ratelimit-requests-limit');
-        if (remaining !== null) {
-          console.info(`[API-Football] quota: ${remaining}/${limit} requests remaining — call: ${path}`);
-          if (Number(remaining) <= 0) {
-            return { data: null, error: `Daily API-Football quota exhausted (0/${limit} requests remaining today). It resets 24h after your first call of the day — try again later, or upgrade your plan.` };
-          }
-        }
-
-        if (res.status === 429) {
-          return { data: null, error: "API-Football rate limit hit (HTTP 429 — too many requests per second/minute). Wait a moment and try again." };
-        }
-
-        if (res.status === 401 || res.status === 403) {
-          const bodyText = await res.text().catch(() => "");
-          console.error(`[API-Football] HTTP ${res.status} for ${path}:`, bodyText);
-          return { data: null, error: `API-Football rejected the request (HTTP ${res.status}) — check that the API key is valid and your plan includes this endpoint/season.` };
-        }
-
-        if (!res.ok) {
-          const bodyText = await res.text().catch(() => "");
-          console.error(`[API-Football] HTTP ${res.status} for ${path}:`, bodyText);
-          return { data: null, error: `API-Football returned HTTP ${res.status}. Full response logged to the console.` };
-        }
-
-        const json = await res.json();
-        console.debug(`[API-Football] response for ${path}:`, json);
-
-        const errText = extractApiFootballError(json);
-        if (errText) {
-          return { data: null, error: errText };
-        }
-
-        return { data: json, error: null };
-      } catch (err) {
-        // Typically a network failure or a blocked cross-origin request.
-        console.error(`[API-Football] fetch threw for ${path}:`, err);
-        return { data: null, error: `Network error contacting API-Football: ${err.message}. This can also happen if the request was blocked (ad blocker, CORS, offline).` };
-      }
-    }
-
-    // Looks up a fixture on API-Football for the given teams on the given date (YYYY-MM-DD, UTC).
-    // Returns { status, elapsed, goalsHome, goalsAway, homeIsTeam1 } or null if nothing matched.
-    async function fetchApiFootballFixture(team1, team2, dateStr) {
-      if (!API_FOOTBALL_KEY || API_FOOTBALL_KEY === "YOUR_API_FOOTBALL_KEY_HERE") {
-        console.warn("API-Football key not set — skipping fetch.");
-        return null;
-      }
-
-      const norm = s => s.trim().toLowerCase();
-      const t1 = norm(team1), t2 = norm(team2);
-      const sameTeam = (a, b) => a.includes(b) || b.includes(a);
-
-      async function queryFixturesForDate(extraParams) {
-        const { data, error } = await apiFootballFetch(`/fixtures?date=${dateStr}${extraParams}`);
-        if (error) {
-          console.error("API-Football /fixtures error:", error);
-          return [];
-        }
-        return (data && data.response) || [];
-      }
-
-      function findMatch(fixtures) {
-        return fixtures.find(f => {
-          const home = norm(f.teams.home.name);
-          const away = norm(f.teams.away.name);
-          return (sameTeam(home, t1) && sameTeam(away, t2)) || (sameTeam(home, t2) && sameTeam(away, t1));
-        });
-      }
-
-      try {
-        // Prefer matches inside the World Cup league/season (this is what the app tracks),
-        // since a date-only search returns EVERY match played that day across every
-        // competition worldwide and could otherwise match the wrong "Colombia" or "Congo".
-        let fx = findMatch(await queryFixturesForDate(`&league=${WORLD_CUP_LEAGUE_ID}&season=${WORLD_CUP_SEASON}`));
-
-        // Fall back to an unrestricted date search only if nothing turned up in the World
-        // Cup results — this keeps support for admin-added non-WC friendlies working too.
-        if (!fx) {
-          fx = findMatch(await queryFixturesForDate(''));
-        }
-
-        if (!fx) return null;
-
-        const homeIsTeam1 = sameTeam(norm(fx.teams.home.name), t1);
-        return {
-          status: fx.fixture.status.short,
-          elapsed: fx.fixture.status.elapsed,
-          homeTeam: fx.teams.home.name,
-          awayTeam: fx.teams.away.name,
-          goalsHome: fx.goals.home,
-          goalsAway: fx.goals.away,
-          homeIsTeam1: homeIsTeam1
-        };
-      } catch (err) {
-        console.error("API-Football fetch failed:", err);
-        return null;
-      }
-    }
-
-    // True while a match is presumed in progress: kickoff (deadline) has passed but its
-    // configured duration window hasn't elapsed yet. Deadline is used as a kickoff-time proxy.
-    function isMatchLive(m) {
-      const kickoff = new Date(m.deadline).getTime();
-      const now = Date.now();
-      const durationMs = (m.duration != null ? m.duration : 120) * 60000;
-      return now >= kickoff && now <= (kickoff + durationMs);
-    }
-
     async function loadMatchCenter() {
       const { data: matches, error: mErr } = await _supabase.from('matches').select('*');
       const { data: counts_raw, error: pErr } = await _supabase.from('public_prediction_counts').select('*');
-
+      
       if (mErr) return;
 
       let counts = {};
@@ -579,11 +397,11 @@
 
       globalMatches = (matches || []).map(m => {
         const deadlineDate = new Date(m.deadline);
-        let formattedDeadline = m.deadline;
+        let formattedDeadline = m.deadline; 
         try {
           formattedDeadline = deadlineDate.toLocaleString('en-US', { timeZone: 'Asia/Kathmandu', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
         } catch(e) {}
-
+        
         return {
           ...m,
           status: (new Date() > deadlineDate) ? "Closed" : "Open",
@@ -621,7 +439,6 @@
                 <div style="width:20%;"><span class="score-badge">${m.team1_score !== null ? m.team1_score : '-'} : ${m.team2_score !== null ? m.team2_score : '-'}</span></div>
                 <div style="width:40%;"><img src="${m.flag2}" onerror="this.src='https://placehold.co/45x30?text=⚽'" class="flag-img mb-1"><br><span class="fw-bold small d-block text-truncate">${m.team2}</span></div>
               </div>
-              <div id="live-${m.game_id}" class="mb-1"></div>
               <div class="text-muted small mb-1">⏰ Deadline: <b>${m.formattedDeadline} (NPT)</b></div>
               ${countdownSpanHtml}
               <div class="text-muted small mb-3">📊 Submissions: <b>${m.predictionsCount}</b></div>
@@ -629,270 +446,11 @@
                 <button class="btn btn-primary btn-sm flex-fill fw-bold" ${m.status==='Closed'?'disabled':''} id="btn-apply-${m.game_id}" onclick="openPredictPage('${m.game_id}')">Apply Now</button>
                 <button class="btn btn-secondary btn-sm flex-fill fw-bold" onclick="openResultsPage('${m.game_id}')">Results</button>
               </div>
-              <button class="btn btn-outline-dark btn-sm w-100 fw-bold mt-2" onclick="showFormGuide('${m.game_id}')">📊 Form Guide</button>
             </div>
           </div>`;
       });
 
       if (currentFilterTab === 'Open') startLiveCountdownTicker(filtered);
-      startLiveScorePoller();
-    }
-
-    function startLiveScorePoller() {
-      if (liveScorePollId) clearInterval(liveScorePollId);
-      pollLiveScoresOnce();
-      liveScorePollId = setInterval(pollLiveScoresOnce, 60000); // every 60s to stay within free-tier daily quota
-    }
-
-    async function pollLiveScoresOnce() {
-      const liveCandidates = globalMatches.filter(isMatchLive);
-      for (const m of liveCandidates) {
-        const badge = document.getElementById(`live-${m.game_id}`);
-        if (!badge) continue; // not currently rendered on this tab
-        const dateStr = new Date(m.deadline).toISOString().split('T')[0];
-        const result = await fetchApiFootballFixture(m.team1, m.team2, dateStr);
-        if (!result) { badge.innerHTML = ""; continue; }
-
-        const s1 = result.homeIsTeam1 ? result.goalsHome : result.goalsAway;
-        const s2 = result.homeIsTeam1 ? result.goalsAway : result.goalsHome;
-
-        if (s1 === null || s2 === null) {
-          badge.innerHTML = "";
-        } else if (result.status === "FT" || result.status === "AET" || result.status === "PEN") {
-          badge.innerHTML = `<span class="badge bg-dark">Full-time ${s1} - ${s2} (via API-Football)</span>`;
-        } else if (["1H", "2H", "HT", "ET", "P", "LIVE", "BT"].includes(result.status)) {
-          const minuteText = result.elapsed ? ` (${result.elapsed}')` : "";
-          badge.innerHTML = `<span class="badge bg-danger">🔴 LIVE ${s1} - ${s2}${minuteText}</span>`;
-        } else {
-          badge.innerHTML = "";
-        }
-      }
-    }
-
-    // ---------- Full Schedule (all World Cup 2026 fixtures) ----------
-
-    function openFullSchedulePage() {
-      showPage('fullschedule');
-      loadFullSchedule(false);
-    }
-
-    async function loadFullSchedule(forceRefresh) {
-      const statusEl = document.getElementById('fullschedule-status');
-      const containerEl = document.getElementById('fullschedule-table-container');
-
-      if (fullScheduleCache && !forceRefresh) {
-        renderFullSchedule(fullScheduleCache);
-        return;
-      }
-
-      if (!API_FOOTBALL_KEY || API_FOOTBALL_KEY === "YOUR_API_FOOTBALL_KEY_HERE") {
-        statusEl.innerHTML = `<p class="text-danger text-center">API-Football key is not set — cannot load the schedule.</p>`;
-        return;
-      }
-
-      statusEl.classList.remove('d-none');
-      statusEl.innerHTML = `<div class="spinner-border text-primary" role="status"></div><p class="mt-2">Loading World Cup 2026 fixtures from API-Football...</p>`;
-      containerEl.innerHTML = "";
-
-      try {
-        // The /fixtures endpoint paginates results (see the "paging" block on every
-        // API-Football response). The World Cup has 104 total fixtures, which can span
-        // more than one page, so we walk every page and merge the results together.
-        let allFixtures = [];
-        let page = 1;
-        let totalPages = 1;
-
-        do {
-          const { data, error } = await apiFootballFetch(`/fixtures?league=${WORLD_CUP_LEAGUE_ID}&season=${WORLD_CUP_SEASON}&page=${page}`);
-          if (error) throw new Error(error);
-
-          allFixtures = allFixtures.concat((data && data.response) || []);
-          totalPages = (data && data.paging && data.paging.total) ? data.paging.total : 1;
-          page++;
-        } while (page <= totalPages);
-
-        if (allFixtures.length === 0) {
-          statusEl.innerHTML = `<p class="text-muted text-center">No fixtures published yet for the 2026 World Cup.</p>`;
-          return;
-        }
-
-        fullScheduleCache = allFixtures.slice().sort((a, b) => new Date(a.fixture.date) - new Date(b.fixture.date));
-        renderFullSchedule(fullScheduleCache);
-      } catch (err) {
-        statusEl.innerHTML = `<p class="text-danger text-center">Failed to load schedule: ${err.message}</p>`;
-      }
-    }
-
-    function renderFullSchedule(fixtures) {
-      const statusEl = document.getElementById('fullschedule-status');
-      const containerEl = document.getElementById('fullschedule-table-container');
-      statusEl.classList.add('d-none');
-
-      let html = `<table class="table table-striped table-bordered align-middle">
-        <thead class="table-dark"><tr><th>#</th><th>Match</th><th>Round</th><th>Date & Time (NPT)</th><th>Venue</th><th>Status</th></tr></thead><tbody>`;
-
-      fixtures.forEach((fx, idx) => {
-        const npt = new Date(fx.fixture.date).toLocaleString('en-US', {
-          timeZone: 'Asia/Kathmandu', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true
-        });
-        const venue = fx.fixture.venue && fx.fixture.venue.name ? `${fx.fixture.venue.name}${fx.fixture.venue.city ? ', ' + fx.fixture.venue.city : ''}` : '—';
-        const round = (fx.league && fx.league.round) ? fx.league.round : '—';
-        const statusShort = fx.fixture.status.short;
-        let statusLabel = statusShort;
-        let scoreText = "";
-        if (statusShort === "FT" || statusShort === "AET" || statusShort === "PEN") {
-          scoreText = ` (${fx.goals.home} - ${fx.goals.away})`;
-          statusLabel = "Finished";
-        } else if (["1H", "2H", "HT", "ET", "P", "LIVE", "BT"].includes(statusShort)) {
-          scoreText = ` (${fx.goals.home ?? 0} - ${fx.goals.away ?? 0})`;
-          statusLabel = "Live";
-        } else if (statusShort === "NS") {
-          statusLabel = "Not Started";
-        } else if (statusShort === "PST") {
-          statusLabel = "Postponed";
-        } else if (statusShort === "CANC") {
-          statusLabel = "Cancelled";
-        }
-
-        html += `<tr>
-          <td>${idx + 1}</td>
-          <td class="fw-semibold">${fx.teams.home.name} vs ${fx.teams.away.name}${scoreText}</td>
-          <td>${round}</td>
-          <td>${npt}</td>
-          <td>${venue}</td>
-          <td>${statusLabel}</td>
-        </tr>`;
-      });
-
-      html += "</tbody></table>";
-      containerEl.innerHTML = html;
-    }
-
-    // ---------- Form Guide (head-to-head history) ----------
-
-    // Returns { map, error }. `map` is {} on failure (never cached, so the next call retries);
-    // `error` carries the human-readable reason from apiFootballFetch when it fails.
-    async function ensureTeamIdMap() {
-      if (teamIdMap) return { map: teamIdMap, error: null };
-
-      const { data, error } = await apiFootballFetch(`/teams?league=${WORLD_CUP_LEAGUE_ID}&season=${WORLD_CUP_SEASON}`);
-      if (error) {
-        console.error("API-Football /teams error:", error);
-        return { map: {}, error };
-      }
-
-      const responseArr = (data && data.response) || [];
-      if (responseArr.length === 0) {
-        return { map: {}, error: "API-Football returned zero teams for league 1 / season 2026." };
-      }
-
-      const freshMap = {};
-      responseArr.forEach(t => {
-        freshMap[t.team.name.trim().toLowerCase()] = t.team.id;
-      });
-      teamIdMap = freshMap;
-      return { map: teamIdMap, error: null };
-    }
-
-    // Names the app/admins tend to type vs. the exact string API-Football uses on /teams.
-    // Confirmed from real API responses — e.g. Argentina's Round of 32 opponent comes back
-    // as "Cape Verde Islands", not "Cabo Verde" or "Cape Verde".
-    const TEAM_NAME_ALIASES = {
-      "cabo verde": "cape verde islands",
-      "cape verde": "cape verde islands",
-      "usa": "united states",
-      "us": "united states",
-      "united states of america": "united states",
-      "south korea": "korea republic",
-      "korea south": "korea republic",
-      "north korea": "korea dpr",
-      "korea north": "korea dpr",
-      "ivory coast": "côte d'ivoire",
-      "cote d'ivoire": "côte d'ivoire",
-      "iran": "ir iran"
-    };
-
-    function findTeamId(map, name) {
-      const raw = name.trim().toLowerCase();
-      const norm = TEAM_NAME_ALIASES[raw] || raw;
-
-      if (map[norm] !== undefined) return map[norm];
-      if (map[raw] !== undefined) return map[raw];
-
-      // Substring match as a last resort (handles minor punctuation/wording differences).
-      const key = Object.keys(map).find(k => k.includes(norm) || norm.includes(k));
-      return key ? map[key] : null;
-    }
-
-    async function showFormGuide(gId) {
-      const m = globalMatches.find(x => x.game_id === gId);
-      if (!m) return;
-
-      document.getElementById('formGuideTitle').innerText = `📊 Form Guide: ${m.team1} vs ${m.team2}`;
-      const bodyEl = document.getElementById('formGuideBody');
-      bodyEl.innerHTML = `<div class="text-center p-3"><div class="spinner-border text-primary" role="status"></div></div>`;
-      const modal = new bootstrap.Modal(document.getElementById('formGuideModal'));
-      modal.show();
-
-      if (!API_FOOTBALL_KEY || API_FOOTBALL_KEY === "YOUR_API_FOOTBALL_KEY_HERE") {
-        bodyEl.innerHTML = `<p class="text-danger">API-Football key is not set.</p>`;
-        return;
-      }
-
-      const { map, error: teamMapError } = await ensureTeamIdMap();
-
-      // A failed/empty map means the /teams request itself didn't succeed (quota, network,
-      // bad key, etc.) rather than a naming mismatch — surface the real reason, not a guess.
-      if (teamMapError) {
-        bodyEl.innerHTML = `<p class="text-danger">Couldn't load the World Cup team list from API-Football.<br><small>${teamMapError}</small></p>`;
-        return;
-      }
-
-      const id1 = findTeamId(map, m.team1);
-      const id2 = findTeamId(map, m.team2);
-
-      if (!id1 || !id2) {
-        const missing = [];
-        if (!id1) missing.push(m.team1);
-        if (!id2) missing.push(m.team2);
-        console.warn("Form Guide: could not resolve team id(s) for", missing, "— known API-Football names:", Object.keys(map));
-        bodyEl.innerHTML = `<p class="text-muted">Couldn't resolve API-Football's team ID for: <b>${missing.join(', ')}</b>. Their exact name on API-Football may differ from what's stored here — check the browser console for the full list of recognized names, then add an alias in <code>TEAM_NAME_ALIASES</code> if needed.</p>`;
-        return;
-      }
-
-      const { data: h2hData, error: h2hError } = await apiFootballFetch(`/fixtures/headtohead?h2h=${id1}-${id2}&last=5`);
-
-      if (h2hError) {
-        bodyEl.innerHTML = `<p class="text-danger">API-Football error: ${h2hError}</p>`;
-        return;
-      }
-
-      const h2hResponse = (h2hData && h2hData.response) || [];
-
-      if (h2hResponse.length === 0) {
-        bodyEl.innerHTML = `<p class="text-muted">No previous meetings found between ${m.team1} and ${m.team2}.</p>`;
-        return;
-      }
-
-      try {
-        // Show the most recent meeting first.
-        const meetings = h2hResponse.slice().sort((a, b) => new Date(b.fixture.date) - new Date(a.fixture.date));
-
-        let html = `<p class="text-muted small mb-2">Last ${meetings.length} meeting(s):</p><ul class="list-group">`;
-        meetings.forEach(fx => {
-          const dateStr = new Date(fx.fixture.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-          const scoreText = (fx.goals.home !== null && fx.goals.away !== null) ? `${fx.goals.home} - ${fx.goals.away}` : fx.fixture.status.short;
-          html += `<li class="list-group-item d-flex justify-content-between align-items-center">
-            <span>${fx.teams.home.name} vs ${fx.teams.away.name}</span>
-            <span class="fw-bold">${scoreText}</span>
-            <span class="text-muted small">${dateStr}</span>
-          </li>`;
-        });
-        html += "</ul>";
-        bodyEl.innerHTML = html;
-      } catch (err) {
-        bodyEl.innerHTML = `<p class="text-danger">Failed to load head-to-head data: ${err.message}</p>`;
-      }
     }
 
     function startLiveCountdownTicker(openMatches) {
@@ -959,7 +517,7 @@
 
     function triggerSubmissionConfirmation(e) {
       e.preventDefault();
-
+      
       const rawScore1 = document.getElementById('pred-t1-score').value;
       const rawScore2 = document.getElementById('pred-t2-score').value;
       if (rawScore1.includes('.') || rawScore2.includes('.')) {
@@ -981,7 +539,7 @@
       }
 
       const match = globalMatches.find(x => x.game_id === document.getElementById('pred-gameId').value);
-
+      
       temporaryPayloadCache = {
         game_id: match.game_id,
         fee: parseFloat(document.getElementById('pred-fee').value),
@@ -1101,8 +659,8 @@
     }
 
     function generateHighEntropyToken() {
-      const uppers = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-      const lowers = "abcdefghijkmnopqrstuvwxyz";
+      const uppers = "ABCDEFGHJKLMNPQRSTUVWXYZ"; 
+      const lowers = "abcdefghijkmnopqrstuvwxyz"; 
       const digits = "23456789";
       const specials = "@#$%&*!";
       const collectiveAll = uppers + lowers + digits + specials;
@@ -1124,13 +682,13 @@
     async function processDraftTokens() {
       const targetMatch = document.getElementById('adm-gen-match-id').value;
       const amountToGenerate = parseInt(document.getElementById('adm-gen-qty').value);
-
+      
       if(isNaN(amountToGenerate) || amountToGenerate < 1) return;
 
       pendingDraftVouchersArray = [];
       const previewZone = document.getElementById('adm-vouchers-preview-zone');
       const pillsContainer = document.getElementById('adm-preview-pills');
-
+      
       pillsContainer.innerHTML = "";
 
       for(let i=0; i < amountToGenerate; i++) {
@@ -1149,7 +707,7 @@
 
     async function commitVouchersToCloud() {
       if(pendingDraftVouchersArray.length === 0) return;
-
+      
       const proceed = confirm(`Are you sure you want to permanently authorize these ${pendingDraftVouchersArray.length} secure tokens for this game?`);
       if(!proceed) return;
 
@@ -1171,9 +729,9 @@
       const mId = document.getElementById('adm-view-voucher-match-id').value;
       const renderArea = document.getElementById('active-voucher-pool-render');
       const copyAllBtn = document.getElementById('btn-copy-all-unused');
-
+      
       renderArea.innerHTML = "<small class='text-muted'>Querying verification logs...</small>";
-      currentUnusedVouchersCache = [];
+      currentUnusedVouchersCache = []; 
       if(copyAllBtn) copyAllBtn.disabled = true;
 
       const { data, error } = await _supabase
@@ -1192,7 +750,7 @@
       }
 
       renderArea.innerHTML = "";
-
+      
       data.forEach(v => {
         if (!v.is_used) {
           currentUnusedVouchersCache.push(v.voucher_code);
@@ -1200,13 +758,13 @@
 
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = v.is_used
-          ? 'btn btn-sm btn-danger text-white opacity-50 me-2 mb-2 font-monospace'
+        btn.className = v.is_used 
+          ? 'btn btn-sm btn-danger text-white opacity-50 me-2 mb-2 font-monospace' 
           : 'btn btn-sm btn-light text-dark border-success border me-2 mb-2 font-monospace';
-
+        
         btn.textContent = v.voucher_code;
         btn.title = v.is_used ? 'Consumed' : 'Active - Click to copy';
-
+        
         if (v.is_used) {
           btn.disabled = true;
         } else {
@@ -1214,7 +772,7 @@
             copyTokenToClipboard(v.voucher_code, btn);
           };
         }
-
+        
         renderArea.appendChild(btn);
       });
 
@@ -1259,7 +817,7 @@
       const originalLabel = element.textContent;
       element.textContent = `Copied ${currentUnusedVouchersCache.length} Keys! ✓`;
       element.className = "btn btn-success btn-sm fw-bold";
-
+      
       setTimeout(() => {
         element.textContent = originalLabel;
         element.className = "btn btn-dark btn-sm fw-bold";
@@ -1293,7 +851,7 @@
       const originalText = element.textContent;
       element.textContent = "Copied! ✓";
       element.className = "btn btn-sm btn-success text-white me-2 mb-2 font-monospace";
-
+      
       setTimeout(() => {
         element.textContent = originalText;
         element.className = "btn btn-sm btn-light text-dark border-success border me-2 mb-2 font-monospace";
@@ -1612,44 +1170,9 @@
                 <input type="number" id="adm-t2-${m.game_id}" class="form-control form-control-sm text-center" style="width:60px;" value="${m.team2_score !== null ? m.team2_score : ''}" onkeydown="if(['.',',','-','+','e','E'].includes(event.key))event.preventDefault();">
               </div>
             </td>
-            <td>
-              <div class="d-flex gap-1">
-                <button class="btn btn-outline-primary btn-sm fw-bold" id="adm-fetch-${m.game_id}" onclick="fetchAdminScoreSuggestion('${m.game_id}')">🔎 Fetch Score</button>
-                <button class="btn btn-danger btn-sm fw-bold" onclick="commitScoreFromFrontend('${m.game_id}')">Update</button>
-              </div>
-            </td>
+            <td><button class="btn btn-danger btn-sm fw-bold" onclick="commitScoreFromFrontend('${m.game_id}')">Update</button></td>
           </tr>`;
       });
-    }
-
-    async function fetchAdminScoreSuggestion(gId) {
-      const m = globalMatches.find(x => x.game_id === gId);
-      if (!m) return;
-
-      const btn = document.getElementById(`adm-fetch-${gId}`);
-      if (btn) { btn.disabled = true; btn.textContent = "Fetching..."; }
-
-      const dateStr = new Date(m.deadline).toISOString().split('T')[0];
-      const result = await fetchApiFootballFixture(m.team1, m.team2, dateStr);
-
-      if (btn) { btn.disabled = false; btn.textContent = "🔎 Fetch Score"; }
-
-      if (!result) {
-        alert(`No matching fixture found on API-Football for ${m.team1} vs ${m.team2} on ${dateStr}.\n\nCheck that the API key is set and the team names/date are close to what API-Football uses.`);
-        return;
-      }
-
-      const s1 = result.homeIsTeam1 ? result.goalsHome : result.goalsAway;
-      const s2 = result.homeIsTeam1 ? result.goalsAway : result.goalsHome;
-
-      if (s1 === null || s2 === null) {
-        alert(`Fixture found (${result.homeTeam} vs ${result.awayTeam}) but no score is available yet.\nStatus: ${result.status}`);
-        return;
-      }
-
-      document.getElementById(`adm-t1-${gId}`).value = s1;
-      document.getElementById(`adm-t2-${gId}`).value = s2;
-      alert(`✅ Suggested score filled in: ${m.team1} ${s1} - ${s2} ${m.team2}\nStatus: ${result.status}\n\nReview it, then click "Update" to save it.`);
     }
 
     async function commitScoreFromFrontend(gId) {
