@@ -421,17 +421,25 @@
       let counts = {};
       if (counts_raw) counts_raw.forEach(c => { counts[c.game_id] = c.prediction_count; });
 
+      // Load worldcup26.ir schedule data too, so each fixture card can show its real kickoff
+      // time/venue in NPT (in addition to the site's own prediction deadline). Non-fatal if it fails.
+      await ensureScheduleDataLoaded();
+
       globalMatches = (matches || []).map(m => {
         const deadlineDate = new Date(m.deadline);
         let formattedDeadline = m.deadline; 
         try {
           formattedDeadline = deadlineDate.toLocaleString('en-US', { timeZone: 'Asia/Kathmandu', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
         } catch(e) {}
-        
+
+        const apiGame = findApiGameForTeams(m.team1, m.team2);
+        const apiKickoffText = apiGame ? formatScheduleDate(apiGame.local_date, apiGame.stadium_id) : null;
+
         return {
           ...m,
           status: (new Date() > deadlineDate) ? "Closed" : "Open",
           formattedDeadline: formattedDeadline,
+          apiKickoffText: apiKickoffText,
           predictionsCount: counts[m.game_id] || 0,
           flag1: getFlagUrl(m.team1),
           flag2: getFlagUrl(m.team2)
@@ -465,6 +473,7 @@
                 <div style="width:20%;"><span class="score-badge">${m.team1_score !== null ? m.team1_score : '-'} : ${m.team2_score !== null ? m.team2_score : '-'}</span></div>
                 <div style="width:40%;"><img src="${m.flag2}" onerror="this.src='https://placehold.co/45x30?text=⚽'" class="flag-img mb-1"><br><span class="fw-bold small d-block text-truncate">${m.team2}</span></div>
               </div>
+              ${m.apiKickoffText ? `<div class="text-muted small mb-1">🗓️ Match Time: <b>${m.apiKickoffText}</b></div>` : ''}
               <div class="text-muted small mb-1">⏰ Deadline: <b>${m.formattedDeadline} (NPT)</b></div>
               ${countdownSpanHtml}
               <div class="text-muted small mb-3">📊 Submissions: <b>${m.predictionsCount}</b></div>
@@ -520,6 +529,19 @@
           <p class="mt-2">Loading full tournament schedule...</p>
         </div>`;
 
+      const ok = await ensureScheduleDataLoaded(force);
+      if (ok) {
+        renderScheduleDashboard();
+      } else {
+        container.innerHTML = `<div class="col-12 text-center text-danger p-5"><h5>⚠️ Failed to load schedule</h5></div>`;
+      }
+    }
+
+    // Fetches /get/games + /get/stadiums from worldcup26.ir and populates scheduleGames /
+    // scheduleStadiumsMap. Used both by the Full Schedule page and by the Fixtures page (to show
+    // each fixture's real kickoff time in NPT). Returns true on success, false on failure.
+    async function ensureScheduleDataLoaded(force) {
+      if (scheduleLoaded && !force) return true;
       try {
         const [gamesRes, stadiumsRes] = await Promise.all([
           fetch(`${SCHEDULE_API_BASE}/get/games`),
@@ -542,25 +564,36 @@
           list.forEach(s => { scheduleStadiumsMap[s.id] = s; });
           if (list.length === 0) {
             console.warn('worldcup26.ir: stadiums response had no recognizable array of venues', stadiumsData);
-            warningEl.textContent = '⚠️ Venue/timezone data came back empty — kickoff times below may default to US Eastern Time and could be off for some matches.';
-            warningEl.classList.remove('d-none');
-          } else {
+            if (warningEl) { warningEl.textContent = '⚠️ Venue/timezone data came back empty — kickoff times below may default to US Eastern Time and could be off for some matches.'; warningEl.classList.remove('d-none'); }
+          } else if (warningEl) {
             warningEl.classList.add('d-none');
           }
         } else {
           console.warn('worldcup26.ir: failed to load /get/stadiums — venue timezones will fall back to Eastern Time', stadiumsRes && stadiumsRes.status);
-          warningEl.textContent = '⚠️ Could not load venue data — kickoff times below may default to US Eastern Time and could be off for some matches.';
-          warningEl.classList.remove('d-none');
+          if (warningEl) { warningEl.textContent = '⚠️ Could not load venue data — kickoff times below may default to US Eastern Time and could be off for some matches.'; warningEl.classList.remove('d-none'); }
         }
 
         scheduleGames.forEach(m => { m._nptEpoch = getNptEpoch(m.local_date, m.stadium_id); });
         scheduleGames.sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
 
         scheduleLoaded = true;
-        renderScheduleDashboard();
+        return true;
       } catch (err) {
-        container.innerHTML = `<div class="col-12 text-center text-danger p-5"><h5>⚠️ Failed to load schedule</h5><p class="small text-muted">${err.message}</p></div>`;
+        console.warn('Failed to load worldcup26.ir schedule data', err);
+        return false;
       }
+    }
+
+    function normTeamName(s) { return (s || '').trim().toLowerCase(); }
+
+    // Matches a Fixtures-page (Supabase) team pairing against the worldcup26.ir schedule to find
+    // that match's real kickoff time/venue, regardless of which side is "home" in either source.
+    function findApiGameForTeams(team1, team2) {
+      const t1 = normTeamName(team1), t2 = normTeamName(team2);
+      return scheduleGames.find(g => {
+        const h = normTeamName(g.home_team_name_en), a = normTeamName(g.away_team_name_en);
+        return (h === t1 && a === t2) || (h === t2 && a === t1);
+      });
     }
 
     function setScheduleFilter(status) {
