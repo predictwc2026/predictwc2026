@@ -750,9 +750,32 @@
       return teamIdMap;
     }
 
+    // Names the app/admins tend to type vs. the exact string API-Football uses on /teams.
+    // Confirmed from real API responses — e.g. Argentina's Round of 32 opponent comes back
+    // as "Cape Verde Islands", not "Cabo Verde" or "Cape Verde".
+    const TEAM_NAME_ALIASES = {
+      "cabo verde": "cape verde islands",
+      "cape verde": "cape verde islands",
+      "usa": "united states",
+      "us": "united states",
+      "united states of america": "united states",
+      "south korea": "korea republic",
+      "korea south": "korea republic",
+      "north korea": "korea dpr",
+      "korea north": "korea dpr",
+      "ivory coast": "côte d'ivoire",
+      "cote d'ivoire": "côte d'ivoire",
+      "iran": "ir iran"
+    };
+
     function findTeamId(map, name) {
-      const norm = name.trim().toLowerCase();
+      const raw = name.trim().toLowerCase();
+      const norm = TEAM_NAME_ALIASES[raw] || raw;
+
       if (map[norm] !== undefined) return map[norm];
+      if (map[raw] !== undefined) return map[raw];
+
+      // Substring match as a last resort (handles minor punctuation/wording differences).
       const key = Object.keys(map).find(k => k.includes(norm) || norm.includes(k));
       return key ? map[key] : null;
     }
@@ -773,11 +796,23 @@
       }
 
       const map = await ensureTeamIdMap();
+
+      // An empty map almost always means the /teams request itself failed (quota, network,
+      // etc.) rather than a naming mismatch — surface that distinction clearly.
+      if (Object.keys(map).length === 0) {
+        bodyEl.innerHTML = `<p class="text-danger">Couldn't load the World Cup team list from API-Football right now (the request may have failed or hit your daily quota). Check the browser console for details and try again shortly.</p>`;
+        return;
+      }
+
       const id1 = findTeamId(map, m.team1);
       const id2 = findTeamId(map, m.team2);
 
       if (!id1 || !id2) {
-        bodyEl.innerHTML = `<p class="text-muted">Couldn't resolve one or both team IDs on API-Football (${m.team1} / ${m.team2}). This can happen for teams not yet in the 2026 World Cup team list.</p>`;
+        const missing = [];
+        if (!id1) missing.push(m.team1);
+        if (!id2) missing.push(m.team2);
+        console.warn("Form Guide: could not resolve team id(s) for", missing, "— known API-Football names:", Object.keys(map));
+        bodyEl.innerHTML = `<p class="text-muted">Couldn't resolve API-Football's team ID for: <b>${missing.join(', ')}</b>. Their exact name on API-Football may differ from what's stored here — check the browser console for the full list of recognized names, then add an alias in <code>TEAM_NAME_ALIASES</code> if needed.</p>`;
         return;
       }
 
