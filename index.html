@@ -579,12 +579,12 @@
       }
     }
 
-    // The worldcup26.ir API returns local_date/persian_date as matching wall-clock values with
-    // no explicit UTC offset. Since the API is Iran-based and mirrors an Iran Persian-calendar
-    // date onto the same clock time, we treat local_date as Iran Standard Time (UTC+3:30, fixed,
-    // no DST) and convert it to Nepal Time (UTC+5:45, fixed) — a constant +2h15m shift.
-    const SOURCE_UTC_OFFSET_MIN = 3 * 60 + 30; // Iran Standard Time
-    const NPT_UTC_OFFSET_MIN = 5 * 60 + 45;    // Nepal Time
+    // The worldcup26.ir API's local_date field is not Iran time (despite the .ir domain) — it
+    // matches FIFA's officially announced kickoff times, which FIFA always publishes in US
+    // Eastern Time (EDT, UTC-4, fixed — DST is in effect for the entire June-July tournament
+    // window). We convert that to Nepal Time (UTC+5:45, fixed): a constant +9h45m shift.
+    const SOURCE_UTC_OFFSET_MIN = -4 * 60;     // US Eastern Daylight Time (EDT, UTC-4)
+    const NPT_UTC_OFFSET_MIN = 5 * 60 + 45;    // Nepal Time (UTC+5:45)
 
     function getNptEpoch(dateStr) {
       if (!dateStr) return null;
