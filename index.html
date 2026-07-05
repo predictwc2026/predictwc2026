@@ -1390,10 +1390,7 @@
       }
 
       if (!isAdminAuthenticated && resultsLockedForPublic) {
-        const msg = match.status === 'Open'
-          ? "System Lockout: Scoreboard analytics remain classified until match deadline."
-          : `System Lockout: Entries are still being finalized (admin late-entry window). Results open to players once finalized${match.status==='Closed' && !match.entriesFinalized ? `, by ${match.formattedGraceEnd} (NPT) at the latest` : ''}.`;
-        alert(msg);
+        alert("System Lockout: Scoreboard analytics remain classified for this match right now. Please check back shortly.");
         return;
       }
 
