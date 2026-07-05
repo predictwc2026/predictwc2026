@@ -300,10 +300,11 @@
 
         <div id="adm-active-ledger-zone" class="mt-4">
           <h6 class="fw-bold text-dark">Active Authorized Keys Ledger (Match-wise Summary):</h6>
-          <div class="input-group mb-2" style="max-width: 550px;">
+          <div class="input-group mb-2" style="max-width: 750px;">
             <select id="adm-view-voucher-match-id" class="form-select form-select-sm" onchange="loadActiveMatchVouchers()"></select>
             <button class="btn btn-outline-secondary btn-sm fw-bold" onclick="loadActiveMatchVouchers()">🔄 Refresh Ledger</button>
             <button class="btn btn-dark btn-sm fw-bold" id="btn-copy-all-unused" onclick="copyAllUnusedTokensToClipboard()">📋 Copy All Unused</button>
+            <button class="btn btn-danger btn-sm fw-bold d-none" id="btn-mark-all-used" onclick="markAllUnusedAsUsed()">🔒 Mark All Unused as Used</button>
           </div>
           <div id="active-voucher-pool-render" class="d-flex flex-wrap gap-2 p-2 border rounded bg-white" style="min-height: 50px;"></div>
         </div>
@@ -422,6 +423,7 @@
     let temporaryPayloadCache = null;
     let pendingDraftVouchersArray = [];
     let currentUnusedVouchersCache = [];
+    let voucherSummaryMap = {}; // game_id -> { total, unused } — used to hide fully-swept closed matches from Target Match Unit
     let isAdminAuthenticated = false;
     let adminPinCache = null; // kept only in memory for the session, used to re-verify admin RPC calls server-side
 
@@ -510,11 +512,19 @@
     async function loadMatchCenter() {
       const { data: matches, error: mErr } = await _supabase.from('matches').select('*');
       const { data: counts_raw, error: pErr } = await _supabase.from('public_prediction_counts').select('*');
-      
+      const { data: voucherRows } = await _supabase.from('match_vouchers').select('game_id, is_used');
+
       if (mErr) return;
 
       let counts = {};
       if (counts_raw) counts_raw.forEach(c => { counts[c.game_id] = c.prediction_count; });
+
+      voucherSummaryMap = {};
+      (voucherRows || []).forEach(v => {
+        if (!voucherSummaryMap[v.game_id]) voucherSummaryMap[v.game_id] = { total: 0, unused: 0 };
+        voucherSummaryMap[v.game_id].total += 1;
+        if (!v.is_used) voucherSummaryMap[v.game_id].unused += 1;
+      });
 
       globalMatches = (matches || []).map(m => {
         const deadlineDate = new Date(m.deadline);
@@ -875,7 +885,16 @@
       if (selectKittyRef) selectKittyRef.innerHTML = "";
       globalMatches.forEach(m => {
         const optText = `${m.team1} vs ${m.team2} [${m.game_id}]`;
-        selectGen.innerHTML += `<option value="${m.game_id}">${optText}</option>`;
+        const summary = voucherSummaryMap[m.game_id];
+        // Once a closed match's vouchers have all been swept to "used" (via Mark All Unused as
+        // Used), there's nothing left to mint for it — hide it from the Target Match Unit
+        // dropdown to keep the mint terminal focused on matches that still need vouchers.
+        // It stays visible in the Active Ledger dropdown so its final voucher state can still
+        // be reviewed.
+        const isFullySweptClosedMatch = m.status === 'Closed' && summary && summary.total > 0 && summary.unused === 0;
+        if (!isFullySweptClosedMatch) {
+          selectGen.innerHTML += `<option value="${m.game_id}">${optText}</option>`;
+        }
         selectView.innerHTML += `<option value="${m.game_id}">${optText}</option>`;
         if (selectKittyRef) selectKittyRef.innerHTML += `<option value="${m.game_id}">${optText}</option>`;
       });
@@ -1260,10 +1279,15 @@
       const mId = document.getElementById('adm-view-voucher-match-id').value;
       const renderArea = document.getElementById('active-voucher-pool-render');
       const copyAllBtn = document.getElementById('btn-copy-all-unused');
+      const markAllBtn = document.getElementById('btn-mark-all-used');
+      const matchForVouchers = globalMatches.find(x => x.game_id === mId);
+      const isClosedMatch = matchForVouchers && matchForVouchers.status === 'Closed';
       
       renderArea.innerHTML = "<small class='text-muted'>Querying verification logs...</small>";
       currentUnusedVouchersCache = []; 
       if(copyAllBtn) copyAllBtn.disabled = true;
+      if(markAllBtn) markAllBtn.classList.toggle('d-none', !isClosedMatch);
+      if(markAllBtn) markAllBtn.disabled = true;
 
       const { data, error } = await _supabase
         .from('match_vouchers')
@@ -1310,6 +1334,43 @@
       if (currentUnusedVouchersCache.length > 0 && copyAllBtn) {
         copyAllBtn.disabled = false;
       }
+      if (currentUnusedVouchersCache.length > 0 && markAllBtn && isClosedMatch) {
+        markAllBtn.disabled = false;
+      }
+    }
+
+    async function markAllUnusedAsUsed() {
+      const mId = document.getElementById('adm-view-voucher-match-id').value;
+      const match = globalMatches.find(x => x.game_id === mId);
+      if (!match) return;
+
+      if (match.status !== 'Closed') {
+        alert("This match is still open — unused vouchers can only be bulk-marked once the match is closed.");
+        return;
+      }
+
+      if (currentUnusedVouchersCache.length === 0) {
+        alert("No unused vouchers to mark for this match.");
+        return;
+      }
+
+      const proceed = confirm(`Mark all ${currentUnusedVouchersCache.length} unused voucher(s) for ${match.team1} vs ${match.team2} as used?\n\nThis cannot be undone, and once done this match will disappear from the "Target Match Unit" dropdown above.`);
+      if (!proceed) return;
+
+      const { error } = await _supabase
+        .from('match_vouchers')
+        .update({ is_used: true })
+        .eq('game_id', mId)
+        .eq('is_used', false);
+
+      if (error) {
+        alert("❌ Failed to update vouchers: " + error.message);
+        return;
+      }
+
+      alert("✅ All unused vouchers for this match have been marked as used.");
+      await loadMatchCenter(); // refreshes voucher totals and re-evaluates the Target Match Unit dropdown
+      loadActiveMatchVouchers();
     }
 
     function copyAllUnusedTokensToClipboard() {
