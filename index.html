@@ -1622,6 +1622,7 @@
         adminLoginModalInstance.hide();
         renderAdminDashboard();
         loadActiveMatchVouchers();
+        renderDashboard(); // refresh Fixtures cards so admin-only late-entry buttons/badges show up
         showPage('admin');
       } else {
         alert("Invalid access parameters.");
