@@ -1616,7 +1616,7 @@
       }
 
       const match = lastLoadedMatchMeta;
-      const headers = ['Full Name', 'Email', 'Team1 Score', 'Team2 Score', 'Fee Paid (NPR)', 'Winner', 'Payout (NPR)', 'Submitted At (NPT)'];
+      const headers = ['Full Name', 'Email', 'Voucher Code', 'Team1 Score', 'Team2 Score', 'Fee Paid (NPR)', 'Winner', 'Payout (NPR)', 'Submitted At (NPT)'];
 
       const escapeCsvField = (val) => {
         const s = (val === null || val === undefined) ? '' : String(val);
@@ -1633,6 +1633,7 @@
       const rows = lastLoadedPredictions.map(p => [
         p.full_name || '',
         p.email || '',
+        p.code || '',
         p.team1_score,
         p.team2_score,
         (Number(p.fee) || 0).toFixed(2),
