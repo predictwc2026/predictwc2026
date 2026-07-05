@@ -33,6 +33,8 @@
     .stepper-btn { width: 40px; height: 40px; flex-shrink: 0; border: none; border-radius: 50%; background-color: #fff; color: #3b0042; font-size: 1.4rem; font-weight: 700; line-height: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; user-select: none; }
     .stepper-btn:active { background-color: #e9ecef; }
     .stepper-value { color: #fff; font-size: 1.75rem; font-weight: 800; min-width: 40px; text-align: center; }
+    .kitty-banner { background: linear-gradient(135deg, #fff3cd, #ffe8a1); border: 1px solid #f0d264; border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; }
+    .kitty-fee-note { font-size: 0.85rem; color: #6c757d; }
   </style>
 </head>
 <body>
@@ -88,7 +90,8 @@
       <button class="btn btn-secondary mb-3" onclick="showPage('home')">← Back to Fixtures</button>
       <div class="card p-4 mx-auto" style="max-width: 600px;">
         <h3 class="fw-bold mb-3">Submit Prediction</h3>
-        <h5 id="predict-title" class="text-muted mb-4"></h5>
+        <h5 id="predict-title" class="text-muted mb-2"></h5>
+        <div id="predict-kitty-banner" class="kitty-banner d-none"></div>
         <form id="prediction-form" onsubmit="triggerSubmissionConfirmation(event)">
           <input type="hidden" id="pred-gameId">
           <input type="hidden" id="pred-fee">
@@ -99,8 +102,9 @@
           </div>
           <div class="mb-3">
             <label class="form-label fw-semibold">Gmail Address</label>
-            <input type="email" class="form-control" id="pred-email" placeholder="username@gmail.com" required>
+            <input type="email" class="form-control" id="pred-email" placeholder="username@gmail.com" required onblur="handleEmailBlurForFee()">
             <div class="form-text text-danger d-none" id="email-error">Only standard Google accounts (@gmail.com) are accepted.</div>
+            <div class="form-text kitty-fee-note d-none" id="fee-status-note"></div>
           </div>
           <div class="mb-3">
             <label class="form-label fw-semibold">Official Pass Code</label>
@@ -185,6 +189,7 @@
       <div class="card p-4">
         <h3 id="res-title" class="fw-bold">Match Result Statistics</h3>
         <div id="res-final-score"></div>
+        <div id="res-kitty-banner" class="kitty-banner d-none"></div>
         <div class="row my-4 text-center">
           <div class="col-md-6 mb-2"><div class="p-3 bg-light border rounded"><h6>No Of Predictions</h6><h2 id="res-total" class="fw-bold text-primary">0</h2></div></div>
           <div class="col-md-6 mb-2"><div class="p-3 bg-light border rounded"><h6>Solo Unique Predictions</h6><h2 id="res-solo" class="fw-bold text-warning">0</h2></div></div>
@@ -201,7 +206,7 @@
           <div id="combination-pills-container"></div>
         </div>
         <h5 class="fw-bold mt-4">Full List</h5>
-        <div class="table-responsive"><table class="table table-striped align-middle"><thead><tr><th>Applicant Name</th><th>Prediction</th><th>Payout (NPR)</th></tr></thead><tbody id="results-table-body"></tbody></table></div>
+        <div class="table-responsive"><table class="table table-striped align-middle"><thead><tr><th>Applicant Name</th><th>Prediction</th><th>Fee Paid</th><th>Payout (NPR)</th></tr></thead><tbody id="results-table-body"></tbody></table></div>
       </div>
     </div>
 
@@ -239,6 +244,32 @@
             <button class="btn btn-success w-100 fw-bold" onclick="createNewMatch()">Add</button>
           </div>
         </div>
+
+        <div class="form-check form-switch mt-4">
+          <input class="form-check-input" type="checkbox" role="switch" id="new-match-is-kitty" onchange="toggleKittyFieldsVisibility()">
+          <label class="form-check-label fw-bold text-warning" for="new-match-is-kitty">🫙 This is a Kitty Match (carries over an unclaimed pool from a previous no-winner match)</label>
+        </div>
+
+        <div id="new-match-kitty-fields" class="row g-3 mt-1 d-none">
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Reference Match (defines "old players")</label>
+            <select id="new-match-kitty-ref" class="form-select"></select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label fw-semibold">Old Player Fee (NPR)</label>
+            <input type="number" id="new-match-old-fee" class="form-control" min="1" step="1" placeholder="e.g. 100">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label fw-semibold">New Player Fee (NPR)</label>
+            <input type="number" id="new-match-new-fee" class="form-control" min="1" step="1" placeholder="e.g. 200">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-semibold">Kitty Carry-Over Amount (NPR)</label>
+            <input type="number" id="new-match-kitty-amount" class="form-control" min="0" step="1" placeholder="e.g. 3100">
+            <div class="form-text">Total unclaimed pool from the reference match (predictions × its fee, since nobody won).</div>
+          </div>
+        </div>
+
         <div class="form-text mt-2">A unique Game ID is generated automatically from the team names — no need to type one.</div>
       </div>
 
@@ -319,6 +350,7 @@
             <div><b>Name:</b> <span id="conf-p-name"></span></div>
             <div><b>Email:</b> <span id="conf-p-email"></span></div>
             <div><b>Voucher:</b> <span id="conf-p-code"></span></div>
+            <div><b>Entry Fee:</b> NPR <span id="conf-p-fee"></span></div>
           </div>
         </div>
         <div class="modal-footer">
@@ -498,11 +530,18 @@
 
       filtered.forEach(m => {
         const countdownSpanHtml = m.status === 'Open' ? `<div class="text-danger small mb-1">⏳ Closing in: <span class="countdown-text" id="timer-${m.game_id}">--:--:--</span></div>` : '';
+        const feeLineHtml = m.is_kitty
+          ? `Game ${m.duration != null ? m.duration : 120} mins &nbsp;|&nbsp; 🫙 Kitty: NPR ${m.kitty_carry_amount || 0}`
+          : `Game ${m.duration != null ? m.duration : 120} mins, Fee: NPR ${m.fee}`;
+        const kittyFeeDetailHtml = m.is_kitty
+          ? `<div class="text-muted small mb-2">Old players: <b>NPR ${m.old_player_fee}</b> &nbsp;|&nbsp; New players: <b>NPR ${m.new_player_fee}</b></div>`
+          : '';
         container.innerHTML += `
           <div class="col-md-6 col-lg-4">
             <div class="card p-3">
-              <div class="d-flex justify-content-between align-items-center mb-2"><span class="badge ${m.status==='Open'?'badge-open':'badge-closed'}">${m.status}</span><small class="text-muted fw-bold">Game ${m.duration != null ? m.duration : 120} mins, Fee: NPR ${m.fee}</small></div>
+              <div class="d-flex justify-content-between align-items-center mb-2"><span class="badge ${m.status==='Open'?'badge-open':'badge-closed'}">${m.status}</span><small class="text-muted fw-bold">${feeLineHtml}</small></div>
               ${m.match_type ? `<div class="text-center mb-1"><span class="match-type-badge">${m.match_type}</span></div>` : ''}
+              ${m.is_kitty ? `<div class="text-center mb-1"><span class="match-type-badge" style="background-color:#fff3cd;color:#7a5b00;">🫙 KITTY MATCH</span></div>` : ''}
               <div class="d-flex align-items-center justify-content-between my-3 text-center">
                 <div style="width:40%;"><img src="${m.flag1}" onerror="this.src='https://placehold.co/45x30?text=⚽'" class="flag-img mb-1"><br><span class="fw-bold small d-block text-truncate">${m.team1}</span></div>
                 <div style="width:20%;"><span class="score-badge">${m.team1_score !== null ? m.team1_score : '-'} : ${m.team2_score !== null ? m.team2_score : '-'}</span></div>
@@ -510,6 +549,7 @@
               </div>
               <div class="text-muted small mb-1">⏰ Deadline: <b>${m.formattedDeadline} (NPT)</b></div>
               ${countdownSpanHtml}
+              ${kittyFeeDetailHtml}
               <div class="text-muted small mb-3">📊 Submissions: <b>${m.predictionsCount}</b></div>
               <div class="d-flex gap-2">
                 <button class="btn btn-primary btn-sm flex-fill fw-bold" ${m.status==='Closed'?'disabled':''} id="btn-apply-${m.game_id}" onclick="openPredictPage('${m.game_id}')">Apply Now</button>
@@ -678,14 +718,11 @@
       if (!stadium || !region) return getVenueTimeZoneByCity(stadium);
 
       if (country.includes('mexico')) {
-        // Mexico is on fixed standard time year-round (no DST) — America/Mexico_City and
-        // America/Monterrey share the same UTC-6 offset, so either resolves correctly.
         return 'America/Mexico_City';
       }
       if (country.includes('canada')) {
         return region.includes('pacific') ? 'America/Vancouver' : 'America/Toronto';
       }
-      // United States (or unspecified — treat as US region label)
       if (region.includes('pacific')) return 'America/Los_Angeles';
       if (region.includes('mountain')) return 'America/Denver';
       if (region.includes('central')) return 'America/Chicago';
@@ -693,8 +730,6 @@
       return getVenueTimeZoneByCity(stadium);
     }
 
-    // Given a wall-clock date/time and an IANA zone, returns that zone's UTC offset in minutes
-    // (e.g. -240 for EDT) at that moment, using the browser's real timezone database.
     function getZoneOffsetMinutes(timeZone, y, mo, d, hh, mi) {
       const guessUtc = Date.UTC(y, mo - 1, d, hh, mi);
       const dtf = new Intl.DateTimeFormat('en-US', {
@@ -720,7 +755,7 @@
       const venueOffsetMin = getZoneOffsetMinutes(venueZone, yyyy, mm, dd, hh, min);
 
       const trueUtcMillis = Date.UTC(yyyy, mm - 1, dd, hh, min) - venueOffsetMin * 60000;
-      return trueUtcMillis + NPT_UTC_OFFSET_MIN * 60000; // epoch whose UTC getters equal NPT wall-clock time
+      return trueUtcMillis + NPT_UTC_OFFSET_MIN * 60000;
     }
 
     function formatScheduleDate(dateStr, stadiumId) {
@@ -750,7 +785,7 @@
       let filtered = [];
       if (scheduleFilterTab === 'Completed') filtered = completed;
       else if (scheduleFilterTab === 'Upcoming') filtered = upcoming;
-      else filtered = [...upcoming, ...completed]; // upcoming first (soonest first), then completed (most recent first)
+      else filtered = [...upcoming, ...completed];
 
       if (filtered.length === 0) {
         container.innerHTML = `<div class="col-12 text-center text-muted p-5"><h5>No matching fixtures found.</h5></div>`;
@@ -795,12 +830,15 @@
     function populateAdminSelectors() {
       const selectGen = document.getElementById('adm-gen-match-id');
       const selectView = document.getElementById('adm-view-voucher-match-id');
+      const selectKittyRef = document.getElementById('new-match-kitty-ref');
       if(!selectGen) return;
       selectGen.innerHTML = ""; selectView.innerHTML = "";
+      if (selectKittyRef) selectKittyRef.innerHTML = "";
       globalMatches.forEach(m => {
         const optText = `${m.team1} vs ${m.team2} [${m.game_id}]`;
         selectGen.innerHTML += `<option value="${m.game_id}">${optText}</option>`;
         selectView.innerHTML += `<option value="${m.game_id}">${optText}</option>`;
+        if (selectKittyRef) selectKittyRef.innerHTML += `<option value="${m.game_id}">${optText}</option>`;
       });
     }
 
@@ -810,16 +848,71 @@
       loadActiveMatchVouchers();
     }
 
+    function toggleKittyFieldsVisibility() {
+      const isKitty = document.getElementById('new-match-is-kitty').checked;
+      document.getElementById('new-match-kitty-fields').classList.toggle('d-none', !isKitty);
+    }
+
     function openPredictPage(gId) {
       const m = globalMatches.find(x => x.game_id === gId);
       activeGameId = gId;
       document.getElementById('pred-gameId').value = gId;
-      document.getElementById('pred-fee').value = m.fee;
       document.getElementById('predict-title').innerText = `${m.team1} vs ${m.team2}`;
       document.getElementById('lbl-team1').innerText = m.team1 + " Score";
       document.getElementById('lbl-team2').innerText = m.team2 + " Score";
       resetPredictionScores();
+
+      const banner = document.getElementById('predict-kitty-banner');
+      const feeNote = document.getElementById('fee-status-note');
+      feeNote.classList.add('d-none');
+      feeNote.innerText = '';
+
+      if (m.is_kitty) {
+        document.getElementById('pred-fee').value = ""; // resolved once email is entered
+        banner.classList.remove('d-none');
+        banner.innerHTML = `🫙 <b>Kitty Match!</b> Pool carried over: <b>NPR ${m.kitty_carry_amount || 0}</b><br>
+          Returning players (who entered the reference match) pay <b>NPR ${m.old_player_fee}</b>. New players pay <b>NPR ${m.new_player_fee}</b>.<br>
+          <span class="small text-muted">Your fee will be confirmed automatically once you enter your email.</span>`;
+      } else {
+        document.getElementById('pred-fee').value = m.fee;
+        banner.classList.add('d-none');
+        banner.innerHTML = '';
+      }
       showPage('predict');
+    }
+
+    // For kitty matches, look up whether the entered email already predicted on the reference
+    // match — determines whether the "old" or "new" player fee applies. Uses a security-definer
+    // RPC so we don't need broad client-side read access to the predictions table.
+    async function handleEmailBlurForFee() {
+      const gId = document.getElementById('pred-gameId').value;
+      const match = globalMatches.find(x => x.game_id === gId);
+      if (!match || !match.is_kitty) return;
+
+      const email = document.getElementById('pred-email').value.trim();
+      const feeNote = document.getElementById('fee-status-note');
+      if (!email || !email.toLowerCase().endsWith('@gmail.com')) return;
+
+      feeNote.classList.remove('d-none');
+      feeNote.innerText = "Checking your player status...";
+
+      const { data, error } = await _supabase.rpc('check_kitty_player_status', {
+        p_reference_game_id: match.kitty_reference_game_id,
+        p_email: email
+      });
+
+      if (error) {
+        feeNote.innerText = "Could not verify player status — please contact the admin.";
+        document.getElementById('pred-fee').value = "";
+        return;
+      }
+
+      const isOldPlayer = data === true;
+      const fee = isOldPlayer ? match.old_player_fee : match.new_player_fee;
+      document.getElementById('pred-fee').value = fee;
+      feeNote.innerText = isOldPlayer
+        ? `✅ Returning player — your entry fee is NPR ${fee}.`
+        : `🆕 New player — your entry fee is NPR ${fee}.`;
     }
 
     function getTurnstileToken() {
@@ -850,17 +943,22 @@
       }
       document.getElementById('email-error').classList.add('d-none');
 
+      const match = globalMatches.find(x => x.game_id === document.getElementById('pred-gameId').value);
+      const feeVal = document.getElementById('pred-fee').value;
+      if (match.is_kitty && (feeVal === "" || feeVal === null)) {
+        alert("⚠️ We couldn't determine your entry fee yet. Please re-enter your email and click outside the field, then try again.");
+        return;
+      }
+
       const captchaToken = getTurnstileToken();
       if (!captchaToken) {
         alert("⚠️ Please complete the verification checkbox before submitting.");
         return;
       }
 
-      const match = globalMatches.find(x => x.game_id === document.getElementById('pred-gameId').value);
-      
       temporaryPayloadCache = {
         game_id: match.game_id,
-        fee: parseFloat(document.getElementById('pred-fee').value),
+        fee: parseFloat(feeVal),
         full_name: document.getElementById('pred-name').value.trim(),
         email: email,
         code: document.getElementById('pred-code').value.trim(),
@@ -875,6 +973,7 @@
       document.getElementById('conf-p-name').innerText = temporaryPayloadCache.full_name;
       document.getElementById('conf-p-email').innerText = temporaryPayloadCache.email;
       document.getElementById('conf-p-code').innerText = temporaryPayloadCache.code;
+      document.getElementById('conf-p-fee').innerText = temporaryPayloadCache.fee;
 
       bootstrapModalInstance.show();
     }
@@ -1210,6 +1309,16 @@
         finalScoreEl.innerHTML = "";
       }
 
+      // --- Kitty info banner ---
+      const kittyBanner = document.getElementById('res-kitty-banner');
+      if (match.is_kitty) {
+        kittyBanner.classList.remove('d-none');
+        kittyBanner.innerHTML = `🫙 <b>Kitty Match</b> — Carried-over pool: <b>NPR ${match.kitty_carry_amount || 0}</b> &nbsp;|&nbsp; Old player fee: NPR ${match.old_player_fee} &nbsp;|&nbsp; New player fee: NPR ${match.new_player_fee}`;
+      } else {
+        kittyBanner.classList.add('d-none');
+        kittyBanner.innerHTML = '';
+      }
+
       if (!isAdminAuthenticated && beforeDeadline) {
         alert("System Lockout: Scoreboard analytics remain classified until match deadline.");
         return;
@@ -1225,7 +1334,7 @@
       if (codeBox) codeBox.classList.toggle('d-none', isAdminAuthenticated);
 
       if (!isAdminAuthenticated && (!filterCode || filterCode.trim() === "")) {
-        tbody.innerHTML = `<tr><td colspan="3" class="text-center text-muted">🔒 Please enter your assignment code above to unlock the log.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted">🔒 Please enter your assignment code above to unlock the log.</td></tr>`;
         document.getElementById('res-total').innerText = "0";
         document.getElementById('res-solo').innerText = "Locked";
         document.getElementById('res-title').innerText = `Results Log: ${match.team1} vs ${match.team2}`;
@@ -1249,7 +1358,7 @@
         });
         if (error || !data || data.length === 0) {
           alert("Invalid Secret Code: Match entries locked.");
-          tbody.innerHTML = `<tr><td colspan="3" class="text-center text-danger">⚠️ Access Denied. Invalid entry code parameters.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger">⚠️ Access Denied. Invalid entry code parameters.</td></tr>`;
           return;
         }
         allPreds = data;
@@ -1268,9 +1377,19 @@
         pillsContainer.innerHTML += `<span class="combo-pill">${key}: ${scoreComboMap[key]} entries</span>`;
       });
 
+      // --- Payout pool ---
+      // Non-kitty match: pool = sum of fees actually paid by everyone in this match (equivalent
+      // to count * fee when every entrant pays the same amount, but now also correct if fees ever
+      // differ per player).
+      // Kitty match: pool = sum of fees actually paid this match (old-player fees + new-player
+      // fees mixed together) PLUS the carried-over kitty amount from the reference match.
+      const totalFeesCollected = allPreds.reduce((sum, p) => sum + (Number(p.fee) || 0), 0);
+      const kittyCarry = match.is_kitty ? (Number(match.kitty_carry_amount) || 0) : 0;
+      const totalPayoutPool = totalFeesCollected + kittyCarry;
+
       let finalScoreKey = (match.team1_score !== null && match.team2_score !== null) ? `${match.team1_score}-${match.team2_score}` : null;
       let matchingPredictionsCount = finalScoreKey ? (scoreComboMap[finalScoreKey] || 0) : 0;
-      let calculatedPayout = (finalScoreKey && matchingPredictionsCount > 0) ? ((allPreds.length * match.fee) / matchingPredictionsCount) : 0;
+      let calculatedPayout = (finalScoreKey && matchingPredictionsCount > 0) ? (totalPayoutPool / matchingPredictionsCount) : 0;
 
       let soloCount = 0;
       let processedPreds = allPreds.map(p => {
@@ -1281,8 +1400,14 @@
       });
 
       processedPreds.sort((a, b) => b.isWinner - a.isWinner).forEach(p => {
-        tbody.innerHTML += `<tr class="${p.isWinner ? 'winner-row' : ''}"><td class="fw-semibold">${p.displayName}</td><td><span class="badge bg-success">${p.team1_score} - ${p.team2_score}</span></td><td class="fw-bold">NPR ${p.payoutValue.toFixed(2)}</td></tr>`;
+        tbody.innerHTML += `<tr class="${p.isWinner ? 'winner-row' : ''}"><td class="fw-semibold">${p.displayName}</td><td><span class="badge bg-success">${p.team1_score} - ${p.team2_score}</span></td><td class="text-muted">NPR ${(Number(p.fee)||0).toFixed(2)}</td><td class="fw-bold">NPR ${p.payoutValue.toFixed(2)}</td></tr>`;
       });
+
+      if (finalScoreKey && matchingPredictionsCount === 0) {
+        // No winners this round — this is exactly the scenario that should feed the *next*
+        // kitty match's kitty_carry_amount (equal to totalPayoutPool here).
+        pillsContainer.innerHTML += `<div class="mt-2 w-100"><span class="badge bg-warning text-dark p-2">🫙 No winning predictions — full pool of NPR ${totalPayoutPool.toFixed(2)} carries over as the kitty for the next kitty match.</span></div>`;
+      }
 
       const adminPreviewSuffix = (isAdminAuthenticated && beforeDeadline) ? ' (Admin Preview — before deadline, not yet visible to players)' : '';
       document.getElementById('res-title').innerText = `Results Log: ${match.team1} vs ${match.team2}${adminPreviewSuffix}`;
@@ -1308,14 +1433,20 @@
       let matchMap = {}; let concludedGamesSet = new Set();
       rows.forEach(r => {
         if (!matchMap[r.game_id]) {
-          matchMap[r.game_id] = { team1_score: r.match_t1, team2_score: r.match_t2, fee: r.fee };
+          matchMap[r.game_id] = {
+            team1_score: r.match_t1,
+            team2_score: r.match_t2,
+            fee: r.fee,
+            is_kitty: r.is_kitty || false,
+            kitty_carry_amount: r.kitty_carry_amount || 0
+          };
         }
         if (r.match_t1 !== null && r.match_t2 !== null) concludedGamesSet.add(r.game_id);
       });
 
       let allPredictions = rows.map(r => ({
         game_id: r.game_id, full_name: r.full_name, email: r.email,
-        team1_score: r.pred_t1, team2_score: r.pred_t2
+        team1_score: r.pred_t1, team2_score: r.pred_t2, fee: r.pred_fee
       }));
 
       let concludedGamesCount = concludedGamesSet.size;
@@ -1331,8 +1462,16 @@
         const match = matchMap[gId];
         if (!match || match.team1_score === null || match.team2_score === null) return;
         const targetKey = `${match.team1_score}-${match.team2_score}`;
-        let winningCount = gameDistribution[gId].filter(p => `${p.team1_score}-${p.team2_score}` === targetKey).length;
-        if (winningCount > 0) gamePayoutMap[gId] = { targetKey: targetKey, payoutPerWinner: (gameDistribution[gId].length * match.fee) / winningCount };
+        const preds = gameDistribution[gId];
+        let winningCount = preds.filter(p => `${p.team1_score}-${p.team2_score}` === targetKey).length;
+        if (winningCount > 0) {
+          // Same pooling rule as the per-match results view: sum of fees actually paid this
+          // match, plus any carried-over kitty amount for kitty matches.
+          const totalFeesCollected = preds.reduce((sum, p) => sum + (Number(p.fee) || 0), 0);
+          const kittyCarry = match.is_kitty ? (Number(match.kitty_carry_amount) || 0) : 0;
+          const totalPayoutPool = totalFeesCollected + kittyCarry;
+          gamePayoutMap[gId] = { targetKey: targetKey, payoutPerWinner: totalPayoutPool / winningCount };
+        }
       });
 
       let playerLeaderboard = {}; let uniquePlayersSet = new Set(); let winningPlayersSet = new Set();
@@ -1430,18 +1569,29 @@
       const fee = parseFloat(document.getElementById('new-match-fee').value);
       const duration = parseInt(document.getElementById('new-match-duration').value);
 
+      const isKitty = document.getElementById('new-match-is-kitty').checked;
+      const kittyRef = isKitty ? document.getElementById('new-match-kitty-ref').value : null;
+      const oldFee = isKitty ? parseFloat(document.getElementById('new-match-old-fee').value) : null;
+      const newFee = isKitty ? parseFloat(document.getElementById('new-match-new-fee').value) : null;
+      const kittyAmount = isKitty ? parseFloat(document.getElementById('new-match-kitty-amount').value) : null;
+
       if (!team1 || !team2) { alert("Please enter both team names."); return; }
       if (!deadlineRaw) { alert("Please pick a prediction deadline."); return; }
       if (isNaN(fee) || fee <= 0) { alert("Please enter a valid entry fee."); return; }
       if (isNaN(duration) || duration <= 0) { alert("Please enter a valid match duration in minutes."); return; }
+
+      if (isKitty) {
+        if (!kittyRef) { alert("Please pick the reference match for the kitty."); return; }
+        if (isNaN(oldFee) || oldFee <= 0) { alert("Please enter a valid old-player fee."); return; }
+        if (isNaN(newFee) || newFee <= 0) { alert("Please enter a valid new-player fee."); return; }
+        if (isNaN(kittyAmount) || kittyAmount < 0) { alert("Please enter a valid kitty carry-over amount."); return; }
+      }
 
       if (!isAdminAuthenticated || !adminPinCache) {
         alert("Your admin session has expired. Please log in again from the Admin Panel.");
         return;
       }
 
-      // The datetime-local input has no timezone info; treat the entered value as Asia/Kathmandu (NPT, UTC+5:45),
-      // since that's the timezone the rest of the app displays deadlines in.
       const deadlineIso = new Date(`${deadlineRaw}:00+05:45`).toISOString();
       const gameId = slugifyGameId(team1, team2);
 
@@ -1455,7 +1605,12 @@
         p_deadline: deadlineIso,
         p_fee: fee,
         p_duration: duration,
-        p_match_type: matchType || null
+        p_match_type: matchType || null,
+        p_is_kitty: isKitty,
+        p_kitty_reference_game_id: kittyRef,
+        p_old_player_fee: oldFee,
+        p_new_player_fee: newFee,
+        p_kitty_carry_amount: kittyAmount
       });
 
       if (error || data !== true) {
@@ -1470,6 +1625,11 @@
       document.getElementById('new-match-deadline').value = "";
       document.getElementById('new-match-fee').value = "100";
       document.getElementById('new-match-duration').value = "120";
+      document.getElementById('new-match-is-kitty').checked = false;
+      document.getElementById('new-match-old-fee').value = "";
+      document.getElementById('new-match-new-fee').value = "";
+      document.getElementById('new-match-kitty-amount').value = "";
+      toggleKittyFieldsVisibility();
 
       await loadMatchCenter();
       renderAdminDashboard();
@@ -1481,7 +1641,7 @@
       globalMatches.forEach(m => {
         tbody.innerHTML += `
           <tr>
-            <td><div class="fw-bold small">${m.team1} vs ${m.team2}</div></td>
+            <td><div class="fw-bold small">${m.team1} vs ${m.team2}</div>${m.is_kitty ? '<span class="badge bg-warning text-dark mt-1">🫙 Kitty</span>' : ''}</td>
             <td><input type="text" id="adm-type-${m.game_id}" class="form-control form-control-sm" style="width:130px;" placeholder="e.g. Round of 16" value="${m.match_type ? m.match_type : ''}"></td>
             <td>
               <div class="d-flex gap-1 align-items-center">
@@ -1587,13 +1747,11 @@
         const headers = rows[0];
         const dataRows = rows.slice(1);
 
-        // Hide internal/utility columns (e.g. "_pos") that exist in the sheet but shouldn't be shown publicly
         const visibleIndexes = headers
           .map((h, idx) => ({ h, idx }))
           .filter(item => !item.h.trim().startsWith('_'))
           .map(item => item.idx);
 
-        // Find the "Rank" column (if present on this tab) to highlight top 4 + last row as winners
         const rankColIndex = headers.findIndex(h => h.trim().toLowerCase() === 'rank');
 
         let html = "<table class='table table-striped table-bordered align-middle'><thead class='table-dark'><tr>";
@@ -1606,7 +1764,7 @@
             const rankVal = parseInt((row[rankColIndex] || '').trim());
             if (!isNaN(rankVal) && rankVal >= 1 && rankVal <= 4) isWinnerRow = true;
           }
-          if (rowIdx === dataRows.length - 1) isWinnerRow = true; // always highlight the last row
+          if (rowIdx === dataRows.length - 1) isWinnerRow = true;
 
           html += `<tr class="${isWinnerRow ? 'winner-row' : ''}">`;
           visibleIndexes.forEach(idx => html += `<td>${row[idx] ?? ''}</td>`);
