@@ -878,7 +878,7 @@
         const refLabel = refMatch ? `${refMatch.team1} vs ${refMatch.team2}` : 'the reference match';
         banner.innerHTML = `🫙 <b>Kitty Match!</b> Pool carried over: <b>NPR ${m.kitty_carry_amount || 0}</b><br>
           Returning players (${refLabel} match) pay <b>NPR ${m.old_player_fee}</b>. New players pay <b>NPR ${m.new_player_fee}</b>.<br>
-          <span class="small text-muted">Your fee will be confirmed automatically once you enter your email.</span>`;
+          <span class="small text-muted">For last game palyers, use same email of last game</span>`;
       } else {
         document.getElementById('pred-fee').value = m.fee;
         banner.classList.add('d-none');
