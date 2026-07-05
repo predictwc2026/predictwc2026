@@ -33,6 +33,8 @@
     .stepper-btn { width: 40px; height: 40px; flex-shrink: 0; border: none; border-radius: 50%; background-color: #fff; color: #3b0042; font-size: 1.4rem; font-weight: 700; line-height: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; user-select: none; }
     .stepper-btn:active { background-color: #e9ecef; }
     .stepper-value { color: #fff; font-size: 1.75rem; font-weight: 800; min-width: 40px; text-align: center; }
+    @keyframes kittyBlink { 0%, 45% { opacity: 1; } 50%, 95% { opacity: 0; } 100% { opacity: 1; } }
+    .kitty-blink-text { animation: kittyBlink 1.2s steps(1, end) infinite; }
     .kitty-banner { background: linear-gradient(135deg, #fff3cd, #ffe8a1); border: 1px solid #f0d264; border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; }
     .kitty-fee-note { font-size: 0.85rem; color: #6c757d; }
   </style>
@@ -540,8 +542,10 @@
           <div class="col-md-6 col-lg-4">
             <div class="card p-3">
               <div class="d-flex justify-content-between align-items-center mb-2"><span class="badge ${m.status==='Open'?'badge-open':'badge-closed'}">${m.status}</span><small class="text-muted fw-bold">${feeLineHtml}</small></div>
-              ${m.match_type ? `<div class="text-center mb-1"><span class="match-type-badge">${m.match_type}</span></div>` : ''}
-              ${m.is_kitty ? `<div class="text-center mb-1"><span class="match-type-badge" style="background-color:#fff3cd;color:#dc3545;font-weight:800;">⚽ KITTY MATCH</span></div>` : ''}
+              ${(m.match_type || m.is_kitty) ? `<div class="text-center mb-1 d-flex justify-content-center flex-wrap gap-2">
+                ${m.match_type ? `<span class="match-type-badge">${m.match_type}</span>` : ''}
+                ${m.is_kitty ? `<span class="match-type-badge" style="background-color:#fff3cd;color:#dc3545;font-weight:800;">⚽ <span class="kitty-blink-text">KITTY MATCH</span></span>` : ''}
+              </div>` : ''}
               <div class="d-flex align-items-center justify-content-between my-3 text-center">
                 <div style="width:40%;"><img src="${m.flag1}" onerror="this.src='https://placehold.co/45x30?text=⚽'" class="flag-img mb-1"><br><span class="fw-bold small d-block text-truncate">${m.team1}</span></div>
                 <div style="width:20%;"><span class="score-badge">${m.team1_score !== null ? m.team1_score : '-'} : ${m.team2_score !== null ? m.team2_score : '-'}</span></div>
