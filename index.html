@@ -93,6 +93,7 @@
       <div class="card p-4 mx-auto" style="max-width: 600px;">
         <h3 class="fw-bold mb-3">Submit Prediction</h3>
         <h5 id="predict-title" class="text-muted mb-2"></h5>
+        <div id="predict-late-entry-banner" class="kitty-banner d-none" style="background:linear-gradient(135deg,#ffe0b3,#ffcf80);border-color:#e0a94a;"></div>
         <div id="predict-kitty-banner" class="kitty-banner d-none"></div>
         <form id="prediction-form" onsubmit="triggerSubmissionConfirmation(event)">
           <input type="hidden" id="pred-gameId">
@@ -312,7 +313,7 @@
         <h4 class="fw-bold text-danger mb-4">🛡️ Match Official Score Logging</h4>
         <div class="table-responsive">
           <table class="table align-middle border">
-            <thead class="table-dark"><tr><th>Match Details</th><th>Match Type</th><th>Enter Scores</th><th>Actions</th></tr></thead>
+            <thead class="table-dark"><tr><th>Match Details</th><th>Match Type</th><th>Enter Scores</th><th>Entries Status</th><th>Actions</th></tr></thead>
             <tbody id="admin-table-body"></tbody>
           </table>
         </div>
@@ -353,6 +354,7 @@
             <div><b>Email:</b> <span id="conf-p-email"></span></div>
             <div><b>Voucher:</b> <span id="conf-p-code"></span></div>
             <div><b>Entry Fee:</b> NPR <span id="conf-p-fee"></span></div>
+            <div id="conf-p-late-note" class="text-warning fw-bold d-none mt-1">🔓 Logged as a late admin entry (after deadline)</div>
           </div>
         </div>
         <div class="modal-footer">
@@ -487,6 +489,24 @@
       return `https://flagcdn.com/w40/${code}.png`;
     }
 
+    // --- Admin late-entry grace window ---
+    // After a match's deadline passes, the admin still has this many minutes to log
+    // late/manual predictions (e.g. entries collected via WhatsApp/cash before the real-world
+    // deadline but not yet typed into the system) before results become visible to players.
+    // The admin can also end this window early via the "Finalize Entries" button, which locks
+    // out further predictions and immediately reveals results to players.
+    const ADMIN_LATE_ENTRY_GRACE_MINUTES = 30;
+
+    function getMatchTiming(m) {
+      const now = new Date();
+      const deadline = new Date(m.deadline);
+      const graceEnd = new Date(deadline.getTime() + ADMIN_LATE_ENTRY_GRACE_MINUTES * 60000);
+      const deadlinePassed = now > deadline;
+      const finalized = !!m.entries_finalized || now > graceEnd;
+      const inLateWindow = deadlinePassed && !finalized;
+      return { deadlinePassed, finalized, inLateWindow, graceEnd };
+    }
+
     async function loadMatchCenter() {
       const { data: matches, error: mErr } = await _supabase.from('matches').select('*');
       const { data: counts_raw, error: pErr } = await _supabase.from('public_prediction_counts').select('*');
@@ -503,13 +523,22 @@
           formattedDeadline = deadlineDate.toLocaleString('en-US', { timeZone: 'Asia/Kathmandu', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
         } catch(e) {}
 
+        const timing = getMatchTiming(m);
+        let formattedGraceEnd = '';
+        try {
+          formattedGraceEnd = timing.graceEnd.toLocaleString('en-US', { timeZone: 'Asia/Kathmandu', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
+        } catch(e) {}
+
         return {
           ...m,
-          status: (new Date() > deadlineDate) ? "Closed" : "Open",
+          status: timing.deadlinePassed ? "Closed" : "Open",
           formattedDeadline: formattedDeadline,
           predictionsCount: counts[m.game_id] || 0,
           flag1: getFlagUrl(m.team1),
-          flag2: getFlagUrl(m.team2)
+          flag2: getFlagUrl(m.team2),
+          inLateWindow: timing.inLateWindow,
+          entriesFinalized: timing.finalized,
+          formattedGraceEnd: formattedGraceEnd
         };
       });
 
@@ -538,6 +567,11 @@
         const kittyFeeDetailHtml = m.is_kitty
           ? `<div class="text-muted small mb-2">Old players: <b>NPR ${m.old_player_fee}</b> &nbsp;|&nbsp; New players: <b>NPR ${m.new_player_fee}</b></div>`
           : '';
+        const canApply = m.status === 'Open' || (isAdminAuthenticated && m.inLateWindow);
+        const isLateAdminEntry = isAdminAuthenticated && m.status === 'Closed' && m.inLateWindow;
+        const lateEntryNoteHtml = isLateAdminEntry
+          ? `<div class="text-muted small mb-2">🔓 <b class="text-warning">Admin late-entry window open</b> until <b>${m.formattedGraceEnd} (NPT)</b> — click "Finalize" in Admin Panel to lock early.</div>`
+          : '';
         container.innerHTML += `
           <div class="col-md-6 col-lg-4">
             <div class="card p-3">
@@ -553,10 +587,11 @@
               </div>
               <div class="text-muted small mb-1">⏰ Deadline: <b>${m.formattedDeadline} (NPT)</b></div>
               ${countdownSpanHtml}
+              ${lateEntryNoteHtml}
               ${kittyFeeDetailHtml}
               <div class="text-muted small mb-3">📊 Submissions: <b>${m.predictionsCount}</b></div>
               <div class="d-flex gap-2">
-                <button class="btn btn-primary btn-sm flex-fill fw-bold" ${m.status==='Closed'?'disabled':''} id="btn-apply-${m.game_id}" onclick="openPredictPage('${m.game_id}')">Apply Now</button>
+                <button class="btn ${isLateAdminEntry ? 'btn-warning' : 'btn-primary'} btn-sm flex-fill fw-bold" ${canApply?'':'disabled'} id="btn-apply-${m.game_id}" onclick="openPredictPage('${m.game_id}')">${isLateAdminEntry ? '🔓 Late Entry (Admin)' : 'Apply Now'}</button>
                 <button class="btn btn-secondary btn-sm flex-fill fw-bold" onclick="openResultsPage('${m.game_id}')">Results</button>
               </div>
             </div>
@@ -859,12 +894,30 @@
 
     function openPredictPage(gId) {
       const m = globalMatches.find(x => x.game_id === gId);
+
+      const canApply = m.status === 'Open' || (isAdminAuthenticated && m.inLateWindow);
+      if (!canApply) {
+        alert(m.entriesFinalized
+          ? "⏱️ This match's entries are finalized. No further predictions can be submitted."
+          : "⏱️ Prediction deadline has passed for this match.");
+        return;
+      }
+
       activeGameId = gId;
       document.getElementById('pred-gameId').value = gId;
       document.getElementById('predict-title').innerText = `${m.team1} vs ${m.team2}`;
       document.getElementById('lbl-team1').innerText = m.team1 + " Score";
       document.getElementById('lbl-team2').innerText = m.team2 + " Score";
       resetPredictionScores();
+
+      const lateBanner = document.getElementById('predict-late-entry-banner');
+      if (isAdminAuthenticated && m.status === 'Closed' && m.inLateWindow) {
+        lateBanner.classList.remove('d-none');
+        lateBanner.innerHTML = `🔓 <b>Admin Late Entry</b> — this match's deadline has passed, but you're within the ${ADMIN_LATE_ENTRY_GRACE_MINUTES}-minute admin grace window (until <b>${m.formattedGraceEnd} (NPT)</b>). This entry will be logged as a late admin submission.`;
+      } else {
+        lateBanner.classList.add('d-none');
+        lateBanner.innerHTML = '';
+      }
 
       const banner = document.getElementById('predict-kitty-banner');
       const feeNote = document.getElementById('fee-status-note');
@@ -950,6 +1003,14 @@
       document.getElementById('email-error').classList.add('d-none');
 
       const match = globalMatches.find(x => x.game_id === document.getElementById('pred-gameId').value);
+
+      const canApply = match.status === 'Open' || (isAdminAuthenticated && match.inLateWindow);
+      if (!canApply) {
+        alert("⏱️ This match can no longer accept predictions.");
+        return;
+      }
+      const isLateAdminEntry = isAdminAuthenticated && match.status === 'Closed' && match.inLateWindow;
+
       const feeVal = document.getElementById('pred-fee').value;
       if (match.is_kitty && (feeVal === "" || feeVal === null)) {
         alert("⚠️ We couldn't determine your entry fee yet. Please re-enter your email and click outside the field, then try again.");
@@ -970,7 +1031,8 @@
         code: document.getElementById('pred-code').value.trim(),
         team1_score: parseInt(rawScore1),
         team2_score: parseInt(rawScore2),
-        captchaToken: captchaToken
+        captchaToken: captchaToken,
+        isLateAdminEntry: isLateAdminEntry
       };
 
       document.getElementById('conf-match-title').innerText = `${match.team1} vs ${match.team2}`;
@@ -980,6 +1042,7 @@
       document.getElementById('conf-p-email').innerText = temporaryPayloadCache.email;
       document.getElementById('conf-p-code').innerText = temporaryPayloadCache.code;
       document.getElementById('conf-p-fee').innerText = temporaryPayloadCache.fee;
+      document.getElementById('conf-p-late-note').classList.toggle('d-none', !temporaryPayloadCache.isLateAdminEntry);
 
       bootstrapModalInstance.show();
     }
@@ -1040,7 +1103,8 @@
           email: String(temporaryPayloadCache.email),
           code: String(temporaryPayloadCache.code),
           team1_score: Number(temporaryPayloadCache.team1_score),
-          team2_score: Number(temporaryPayloadCache.team2_score)
+          team2_score: Number(temporaryPayloadCache.team2_score),
+          late_admin_entry: !!temporaryPayloadCache.isLateAdminEntry
         };
 
         const { error: insertError } = await _supabase
@@ -1294,7 +1358,7 @@
 
     async function renderResultsView(gId, filterCode) {
       const match = globalMatches.find(x => x.game_id === gId);
-      const beforeDeadline = new Date() < new Date(match.deadline);
+      const resultsLockedForPublic = !match.entriesFinalized;
 
       // --- Final score banner (flags + score), shown whenever the match has a logged final result ---
       const finalScoreEl = document.getElementById('res-final-score');
@@ -1325,8 +1389,11 @@
         kittyBanner.innerHTML = '';
       }
 
-      if (!isAdminAuthenticated && beforeDeadline) {
-        alert("System Lockout: Scoreboard analytics remain classified until match deadline.");
+      if (!isAdminAuthenticated && resultsLockedForPublic) {
+        const msg = match.status === 'Open'
+          ? "System Lockout: Scoreboard analytics remain classified until match deadline."
+          : `System Lockout: Entries are still being finalized (admin late-entry window). Results open to players once finalized${match.status==='Closed' && !match.entriesFinalized ? `, by ${match.formattedGraceEnd} (NPT) at the latest` : ''}.`;
+        alert(msg);
         return;
       }
 
@@ -1415,7 +1482,7 @@
         pillsContainer.innerHTML += `<div class="mt-2 w-100"><span class="badge bg-warning text-dark p-2">🫙 No winning predictions — full pool of NPR ${totalPayoutPool.toFixed(2)} carries over as the kitty for the next kitty match.</span></div>`;
       }
 
-      const adminPreviewSuffix = (isAdminAuthenticated && beforeDeadline) ? ' (Admin Preview — before deadline, not yet visible to players)' : '';
+      const adminPreviewSuffix = (isAdminAuthenticated && resultsLockedForPublic) ? ' (Admin Preview — entries not yet finalized, not visible to players)' : '';
       document.getElementById('res-title').innerText = `Results Log: ${match.team1} vs ${match.team2}${adminPreviewSuffix}`;
       document.getElementById('res-total').innerText = allPreds.length;
       document.getElementById('res-solo').innerText = soloCount;
@@ -1645,6 +1712,20 @@
     function renderAdminDashboard() {
       const tbody = document.getElementById('admin-table-body'); tbody.innerHTML = "";
       globalMatches.forEach(m => {
+        let statusCellHtml;
+        if (m.entries_finalized) {
+          statusCellHtml = `<span class="badge bg-success">🔒 Finalized</span>`;
+        } else if (m.status === 'Open') {
+          statusCellHtml = `<span class="badge bg-primary">Open</span>`;
+        } else if (m.inLateWindow) {
+          statusCellHtml = `<span class="badge bg-warning text-dark">🔓 Late window until ${m.formattedGraceEnd}</span>`;
+        } else {
+          statusCellHtml = `<span class="badge bg-secondary">Grace expired</span>`;
+        }
+        const finalizeBtnHtml = m.entries_finalized
+          ? ''
+          : `<button class="btn btn-outline-dark btn-sm fw-bold mt-1" onclick="finalizeMatchEntries('${m.game_id}')">🔒 Finalize</button>`;
+
         tbody.innerHTML += `
           <tr>
             <td><div class="fw-bold small">${m.team1} vs ${m.team2}</div>${m.is_kitty ? '<span class="badge bg-warning text-dark mt-1">🫙 Kitty</span>' : ''}</td>
@@ -1655,9 +1736,33 @@
                 <input type="number" id="adm-t2-${m.game_id}" class="form-control form-control-sm text-center" style="width:60px;" value="${m.team2_score !== null ? m.team2_score : ''}" onkeydown="if(['.',',','-','+','e','E'].includes(event.key))event.preventDefault();">
               </div>
             </td>
+            <td>${statusCellHtml}<br>${finalizeBtnHtml}</td>
             <td><button class="btn btn-danger btn-sm fw-bold" onclick="commitScoreFromFrontend('${m.game_id}')">Update</button></td>
           </tr>`;
       });
+    }
+
+    async function finalizeMatchEntries(gId) {
+      if (!isAdminAuthenticated || !adminPinCache) {
+        alert("Your admin session has expired. Please log in again from the Admin Panel.");
+        return;
+      }
+      const proceed = confirm("Finalize entries for this match now? No further predictions (including late admin entries) can be added, and results become visible to players immediately.");
+      if (!proceed) return;
+
+      const { data, error } = await _supabase.rpc('finalize_match_entries_admin', {
+        p_admin_pin: adminPinCache,
+        p_game_id: gId
+      });
+
+      if (error || data !== true) {
+        alert("❌ Failed to finalize: " + (error ? error.message : "Unauthorized or match not found."));
+        return;
+      }
+
+      alert("✅ Entries finalized. Results are now visible to players.");
+      await loadMatchCenter();
+      renderAdminDashboard();
     }
 
     async function commitScoreFromFrontend(gId) {
