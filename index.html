@@ -1383,7 +1383,9 @@
       const kittyBanner = document.getElementById('res-kitty-banner');
       if (match.is_kitty) {
         kittyBanner.classList.remove('d-none');
-        kittyBanner.innerHTML = `🫙 <b>Kitty Match</b> — Carried-over pool: <b>NPR ${match.kitty_carry_amount || 0}</b> &nbsp;|&nbsp; Old player fee: NPR ${match.old_player_fee} &nbsp;|&nbsp; New player fee: NPR ${match.new_player_fee}`;
+        const refMatch = globalMatches.find(x => x.game_id === match.kitty_reference_game_id);
+        const refLabel = refMatch ? `${refMatch.team1} vs ${refMatch.team2}` : 'a previous match';
+        kittyBanner.innerHTML = `🫙 <b>Kitty Match</b> — Carried over <b>NPR ${match.kitty_carry_amount || 0}</b> from <b>${refLabel}</b> &nbsp;|&nbsp; Old player fee: NPR ${match.old_player_fee} &nbsp;|&nbsp; New player fee: NPR ${match.new_player_fee}`;
       } else {
         kittyBanner.classList.add('d-none');
         kittyBanner.innerHTML = '';
