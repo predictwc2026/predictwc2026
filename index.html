@@ -910,6 +910,12 @@
       document.getElementById('lbl-team2').innerText = m.team2 + " Score";
       resetPredictionScores();
 
+      document.getElementById('pred-name').value = '';
+      document.getElementById('pred-email').value = '';
+      document.getElementById('pred-code').value = '';
+      document.getElementById('email-error').classList.add('d-none');
+      resetTurnstileWidget();
+
       const lateBanner = document.getElementById('predict-late-entry-banner');
       if (isAdminAuthenticated && m.status === 'Closed' && m.inLateWindow) {
         lateBanner.classList.remove('d-none');
