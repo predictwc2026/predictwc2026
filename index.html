@@ -544,7 +544,7 @@
               <div class="d-flex justify-content-between align-items-center mb-2"><span class="badge ${m.status==='Open'?'badge-open':'badge-closed'}">${m.status}</span><small class="text-muted fw-bold">${feeLineHtml}</small></div>
               ${(m.match_type || m.is_kitty) ? `<div class="text-center mb-1 d-flex justify-content-center flex-wrap gap-2">
                 ${m.match_type ? `<span class="match-type-badge">${m.match_type}</span>` : ''}
-                ${m.is_kitty ? `<span class="match-type-badge" style="background-color:#fff3cd;color:#dc3545;font-weight:800;">⚽ <span class="kitty-blink-text">KITTY MATCH</span></span>` : ''}
+                ${m.is_kitty ? `<span class="match-type-badge" style="background-color:#fff3cd;color:#dc3545;font-weight:800;">⚁⚁ <span class="kitty-blink-text">KITTY MATCH</span></span>` : ''}
               </div>` : ''}
               <div class="d-flex align-items-center justify-content-between my-3 text-center">
                 <div style="width:40%;"><img src="${m.flag1}" onerror="this.src='https://placehold.co/45x30?text=⚽'" class="flag-img mb-1"><br><span class="fw-bold small d-block text-truncate">${m.team1}</span></div>
@@ -874,8 +874,10 @@
       if (m.is_kitty) {
         document.getElementById('pred-fee').value = ""; // resolved once email is entered
         banner.classList.remove('d-none');
+        const refMatch = globalMatches.find(x => x.game_id === m.kitty_reference_game_id);
+        const refLabel = refMatch ? `${refMatch.team1} vs ${refMatch.team2}` : 'the reference match';
         banner.innerHTML = `🫙 <b>Kitty Match!</b> Pool carried over: <b>NPR ${m.kitty_carry_amount || 0}</b><br>
-          Returning players (who entered the reference match) pay <b>NPR ${m.old_player_fee}</b>. New players pay <b>NPR ${m.new_player_fee}</b>.<br>
+          Returning players (${refLabel} match) pay <b>NPR ${m.old_player_fee}</b>. New players pay <b>NPR ${m.new_player_fee}</b>.<br>
           <span class="small text-muted">Your fee will be confirmed automatically once you enter your email.</span>`;
       } else {
         document.getElementById('pred-fee').value = m.fee;
