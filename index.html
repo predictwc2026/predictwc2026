@@ -903,9 +903,6 @@
         return;
       }
 
-      const predForm = document.getElementById('prediction-form');
-      if (predForm) predForm.reset();
-
       activeGameId = gId;
       document.getElementById('pred-gameId').value = gId;
       document.getElementById('predict-title').innerText = `${m.team1} vs ${m.team2}`;
