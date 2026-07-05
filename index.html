@@ -208,7 +208,10 @@
           <h6 class="fw-bold text-secondary mb-2">Prediction Summary Breakdown</h6>
           <div id="combination-pills-container"></div>
         </div>
-        <h5 class="fw-bold mt-4">Full List</h5>
+        <div class="d-flex justify-content-between align-items-center mt-4">
+          <h5 class="fw-bold mb-0">Full List</h5>
+          <button id="btn-export-csv" class="btn btn-outline-success btn-sm fw-bold d-none" onclick="exportResultsCsv()">📥 Export CSV (Admin)</button>
+        </div>
         <div class="table-responsive"><table class="table table-striped align-middle"><thead><tr><th>Applicant Name</th><th>Prediction</th><th>Fee Paid</th><th>Payout (NPR)</th></tr></thead><tbody id="results-table-body"></tbody></table></div>
       </div>
     </div>
@@ -424,6 +427,8 @@
     let pendingDraftVouchersArray = [];
     let currentUnusedVouchersCache = [];
     let voucherSummaryMap = {}; // game_id -> { total, unused } — used to hide fully-swept closed matches from Target Match Unit
+    let lastLoadedMatchMeta = null; // match currently shown on the Results page (for CSV export)
+    let lastLoadedPredictions = []; // processed predictions currently shown on the Results page (for CSV export)
     let isAdminAuthenticated = false;
     let adminPinCache = null; // kept only in memory for the session, used to re-verify admin RPC calls server-side
 
@@ -1500,6 +1505,9 @@
         return;
       }
 
+      const exportBtn = document.getElementById('btn-export-csv');
+      if (exportBtn) exportBtn.classList.toggle('d-none', !isAdminAuthenticated);
+
       const tbody = document.getElementById('results-table-body');
       const pillsContainer = document.getElementById('combination-pills-container');
       const summarySection = document.getElementById('summary-combinations-section');
@@ -1589,7 +1597,64 @@
       document.getElementById('res-title').innerText = `Results Log: ${match.team1} vs ${match.team2}${adminPreviewSuffix}`;
       document.getElementById('res-total').innerText = allPreds.length;
       document.getElementById('res-solo').innerText = soloCount;
+
+      lastLoadedMatchMeta = match;
+      lastLoadedPredictions = processedPreds;
+
       showPage('results');
+    }
+
+    // --- Admin-only CSV export of the currently-loaded match's full prediction list ---
+    function exportResultsCsv() {
+      if (!isAdminAuthenticated) {
+        alert("Admin authentication required to export.");
+        return;
+      }
+      if (!lastLoadedMatchMeta || !lastLoadedPredictions || lastLoadedPredictions.length === 0) {
+        alert("No prediction data currently loaded to export.");
+        return;
+      }
+
+      const match = lastLoadedMatchMeta;
+      const headers = ['Full Name', 'Email', 'Team1 Score', 'Team2 Score', 'Fee Paid (NPR)', 'Winner', 'Payout (NPR)', 'Submitted At (NPT)'];
+
+      const escapeCsvField = (val) => {
+        const s = (val === null || val === undefined) ? '' : String(val);
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+
+      const formatSubmittedAt = (raw) => {
+        if (!raw) return '';
+        try {
+          return new Date(raw).toLocaleString('en-US', { timeZone: 'Asia/Kathmandu', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+        } catch (e) { return raw; }
+      };
+
+      const rows = lastLoadedPredictions.map(p => [
+        p.full_name || '',
+        p.email || '',
+        p.team1_score,
+        p.team2_score,
+        (Number(p.fee) || 0).toFixed(2),
+        p.isWinner ? 'Yes' : 'No',
+        (Number(p.payoutValue) || 0).toFixed(2),
+        formatSubmittedAt(p.created_at)
+      ]);
+
+      const csvContent = [headers, ...rows]
+        .map(row => row.map(escapeCsvField).join(','))
+        .join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const safeTeamSlug = `${match.team1}_vs_${match.team2}`.replace(/[^a-z0-9]+/gi, '_');
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${safeTeamSlug}_predictions.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     }
 
     async function promptLeaderboardAuth() {
