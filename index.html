@@ -1685,7 +1685,8 @@
             team2_score: r.match_t2,
             fee: r.fee,
             is_kitty: r.is_kitty || false,
-            kitty_carry_amount: r.kitty_carry_amount || 0
+            kitty_carry_amount: r.kitty_carry_amount || 0,
+            kitty_reference_game_id: r.kitty_reference_game_id || null
           };
         }
         if (r.match_t1 !== null && r.match_t2 !== null) concludedGamesSet.add(r.game_id);
@@ -1704,8 +1705,17 @@
         gameDistribution[p.game_id].push(p);
       });
 
+      // A match that another (kitty) match points back to via kitty_reference_game_id
+      // has already had its collected fees rolled forward into that later match's
+      // pool. It must not also pay out its own predictors directly.
+      let carriedForwardSet = new Set();
+      Object.values(matchMap).forEach(m => {
+        if (m.kitty_reference_game_id) carriedForwardSet.add(m.kitty_reference_game_id);
+      });
+
       let gamePayoutMap = {};
       Object.keys(gameDistribution).forEach(gId => {
+        if (carriedForwardSet.has(gId)) return; // pool already carried into a later kitty match
         const match = matchMap[gId];
         if (!match || match.team1_score === null || match.team2_score === null) return;
         const targetKey = `${match.team1_score}-${match.team2_score}`;
