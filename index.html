@@ -2002,22 +2002,32 @@
       loadGoogleSheetData(gid);
     }
 
+    const SHEET_ID = "1TZJ3o4DYQdTCUZ7sbaQgSfCweQX4caazGSWQSF2DtYE";
+    const SHEET_GIDS = { summary: '475091993', predictions: '968243674', results: '1741460864' };
+
+    function escapeHtml(str) {
+      return String(str ?? '').replace(/[&<>"']/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[ch]));
+    }
+
+    async function fetchSheetRows(gid) {
+      const csvUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`;
+      const res = await fetch(csvUrl);
+      if (!res.ok) throw new Error("Could not fetch sheet data.");
+      const csvText = await res.text();
+      const parsed = Papa.parse(csvText, { skipEmptyLines: true });
+      return parsed.data;
+    }
+
     async function loadGoogleSheetData(gid) {
       const loadingEl = document.getElementById('sheet-loading');
       const containerEl = document.getElementById('sheet-table-container');
       loadingEl.classList.remove('d-none');
       containerEl.innerHTML = "";
 
-      const sheetId = "1TZJ3o4DYQdTCUZ7sbaQgSfCweQX4caazGSWQSF2DtYE";
-      const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
-
       try {
-        const res = await fetch(csvUrl);
-        if (!res.ok) throw new Error("Could not fetch sheet data.");
-        const csvText = await res.text();
-
-        const parsed = Papa.parse(csvText, { skipEmptyLines: true });
-        const rows = parsed.data;
+        const rows = await fetchSheetRows(gid);
 
         if (!rows || rows.length === 0) {
           containerEl.innerHTML = "<p class='text-muted text-center'>No data found in the sheet.</p>";
@@ -2034,6 +2044,10 @@
           .map(item => item.idx);
 
         const rankColIndex = headers.findIndex(h => h.trim().toLowerCase() === 'rank');
+        const isSummaryTab = gid === SHEET_GIDS.summary;
+        const nameColIndex = isSummaryTab
+          ? headers.findIndex(h => h.trim().toLowerCase() === 'name')
+          : -1;
 
         let html = "<table class='table table-striped table-bordered align-middle'><thead class='table-dark'><tr>";
         visibleIndexes.forEach(idx => html += `<th>${headers[idx]}</th>`);
@@ -2048,16 +2062,179 @@
           if (rowIdx === dataRows.length - 1) isWinnerRow = true;
 
           html += `<tr class="${isWinnerRow ? 'winner-row' : ''}">`;
-          visibleIndexes.forEach(idx => html += `<td>${row[idx] ?? ''}</td>`);
+          visibleIndexes.forEach(idx => {
+            const cellVal = row[idx] ?? '';
+            if (idx === nameColIndex && String(cellVal).trim() !== '') {
+              html += `<td><a href="#" class="player-name-link fw-semibold" data-player="${escapeHtml(cellVal)}">${escapeHtml(cellVal)}</a></td>`;
+            } else {
+              html += `<td>${escapeHtml(cellVal)}</td>`;
+            }
+          });
           html += "</tr>";
         });
         html += "</tbody></table>";
 
         containerEl.innerHTML = html;
+
+        if (isSummaryTab) {
+          containerEl.querySelectorAll('.player-name-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+              e.preventDefault();
+              openPlayerPredictions(link.getAttribute('data-player'));
+            });
+          });
+        }
       } catch (err) {
         containerEl.innerHTML = `<p class='text-danger text-center'>Failed to load sheet: ${err.message}</p>`;
       } finally {
         loadingEl.classList.add('d-none');
+      }
+    }
+
+    function normalizeKey(str) {
+      return String(str ?? '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    }
+
+    const ROUND_LABELS = {
+      round32: 'Round of 32',
+      round16: 'Round of 16',
+      quarter: 'Quarterfinals',
+      semifinal: 'Semifinals',
+      final: 'Final'
+    };
+
+    function roundLabelForKey(key) {
+      return ROUND_LABELS[key.toLowerCase()] || key;
+    }
+
+    async function openPlayerPredictions(playerName) {
+      // Open the window synchronously (in direct response to the click) so
+      // popup blockers don't stop it while we wait for the data to load.
+      const popup = window.open('', '_blank');
+      if (!popup) {
+        alert('Please allow pop-ups for this site to view player predictions.');
+        return;
+      }
+      popup.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>${escapeHtml(playerName)} — Predictions</title>
+          <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+          <style>
+            body { background-color: #f4f7f6; font-family: system-ui, sans-serif; padding: 24px; }
+            .section-title { background-color: #3b0042; color: #fff; padding: 8px 16px; border-radius: 8px 8px 0 0; font-weight: 700; }
+            .subtotal-row td { background-color: #e9ecef !important; font-weight: 700; }
+            .grand-total-card { background: linear-gradient(135deg, #3b0042, #6a0d91); color: #fff; border-radius: 12px; padding: 20px; text-align: center; margin-top: 24px; }
+            .grand-total-card .gt-value { font-size: 2.5rem; font-weight: 800; }
+            table.section-table { margin-bottom: 24px; }
+          </style>
+        </head>
+        <body>
+          <div class="text-center p-5" id="loading-block">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2">Loading ${escapeHtml(playerName)}'s predictions...</p>
+          </div>
+          <div id="content-block"></div>
+        </body>
+        </html>
+      `);
+      popup.document.close();
+
+      try {
+        const rows = await fetchSheetRows(SHEET_GIDS.predictions);
+        if (!rows || rows.length === 0) throw new Error('No prediction data found.');
+
+        const headers = rows[0];
+        const dataRows = rows.slice(1);
+
+        let nameIdx = -1, pointsIdx = -1;
+        for (let i = 1; i < headers.length; i += 2) {
+          if (normalizeKey(headers[i]) === normalizeKey(playerName)) {
+            nameIdx = i;
+            pointsIdx = i + 1;
+            break;
+          }
+        }
+
+        if (nameIdx === -1) {
+          throw new Error(`Could not find "${playerName}" in the Predictions sheet.`);
+        }
+
+        // Walk through the rows, grouping them into rounds based on the
+        // "Rounds" label column (e.g. Round32_1, ROUND32 TOTAL, ROUND16 COUNT...).
+        const sections = [];
+        let currentSection = null;
+        let winnerRow = null;
+        let grandTotal = null;
+
+        dataRows.forEach(row => {
+          const label = String(row[0] ?? '').trim();
+          if (!label) return;
+          const team = row[nameIdx] ?? '';
+          const points = row[pointsIdx] ?? '';
+
+          if (/^grand total$/i.test(label)) {
+            grandTotal = points;
+          } else if (/^winner$/i.test(label)) {
+            winnerRow = { team, points };
+          } else if (/count$/i.test(label)) {
+            if (currentSection) currentSection.count = { label, value: points };
+          } else if (/total$/i.test(label)) {
+            if (currentSection) currentSection.subtotal = points;
+          } else {
+            const key = label.replace(/[_\s]*\d+$/, '');
+            const matchNum = (label.match(/(\d+)$/) || [])[1] || '';
+            if (!currentSection || currentSection.key !== key) {
+              currentSection = { key, label: roundLabelForKey(key), matches: [], subtotal: null, count: null };
+              sections.push(currentSection);
+            }
+            currentSection.matches.push({ matchNum, team, points });
+          }
+        });
+
+        let html = `<h3 class="fw-bold mb-1">📋 ${escapeHtml(playerName)}'s Predictions</h3>
+          <p class="text-muted mb-4">Round-by-round team picks and points earned</p>`;
+
+        sections.forEach(section => {
+          if (section.matches.length === 0) return;
+          html += `<div class="section-title">${escapeHtml(section.label)}</div>
+            <table class="table table-bordered table-sm section-table mb-0">
+              <thead class="table-light"><tr><th style="width:70px;">#</th><th>Predicted Team</th><th style="width:110px;">Points</th></tr></thead>
+              <tbody>`;
+          section.matches.forEach(m => {
+            html += `<tr><td>${escapeHtml(m.matchNum)}</td><td>${escapeHtml(m.team)}</td><td>${escapeHtml(m.points)}</td></tr>`;
+          });
+          if (section.count) {
+            html += `<tr class="subtotal-row"><td colspan="2">${escapeHtml(section.count.label)}</td><td>${escapeHtml(section.count.value)}</td></tr>`;
+          }
+          if (section.subtotal !== null) {
+            html += `<tr class="subtotal-row"><td colspan="2">${escapeHtml(section.label)} Subtotal</td><td>${escapeHtml(section.subtotal)}</td></tr>`;
+          }
+          html += `</tbody></table>`;
+        });
+
+        if (winnerRow) {
+          html += `<div class="section-title">🏆 Winner Prediction</div>
+            <table class="table table-bordered table-sm section-table mb-0">
+              <tbody><tr><td>Predicted Champion</td><td class="fw-bold">${escapeHtml(winnerRow.team)}</td><td style="width:110px;">${escapeHtml(winnerRow.points)}</td></tr></tbody>
+            </table>`;
+        }
+
+        html += `<div class="grand-total-card">
+            <div>Grand Total</div>
+            <div class="gt-value">${escapeHtml(grandTotal ?? 'N/A')}</div>
+          </div>
+          <div class="text-center mt-4"><button class="btn btn-secondary" onclick="window.close()">Close</button></div>`;
+
+        popup.document.getElementById('loading-block').remove();
+        popup.document.getElementById('content-block').innerHTML = html;
+      } catch (err) {
+        const loadingBlock = popup.document.getElementById('loading-block');
+        if (loadingBlock) loadingBlock.remove();
+        popup.document.getElementById('content-block').innerHTML =
+          `<p class="text-danger text-center">Failed to load predictions: ${escapeHtml(err.message)}</p>`;
       }
     }
   </script>
