@@ -1693,7 +1693,7 @@
 
       let allPredictions = rows.map(r => ({
         game_id: r.game_id, full_name: r.full_name, email: r.email,
-        team1_score: r.pred_t1, team2_score: r.pred_t2, fee: r.pred_fee
+        team1_score: r.pred_t1, team2_score: r.pred_t2, fee: r.fee
       }));
 
       let concludedGamesCount = concludedGamesSet.size;
@@ -1734,7 +1734,10 @@
         }
       });
 
-      let leaderboardArray = Object.values(playerLeaderboard).sort((a, b) => b.totalPayout - a.totalPayout);
+      let leaderboardArray = Object.values(playerLeaderboard).sort((a, b) => {
+        if (b.totalPayout !== a.totalPayout) return b.totalPayout - a.totalPayout;
+        return b.wins - a.wins;
+      });
       document.getElementById('lbl-total-players').innerText = uniquePlayersSet.size;
       document.getElementById('lbl-total-winners').innerText = winningPlayersSet.size;
       document.getElementById('lbl-concluded-games').innerText = concludedGamesCount;
