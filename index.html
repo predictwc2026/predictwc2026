@@ -2194,33 +2194,48 @@
           }
         });
 
-        let html = `<h3 class="fw-bold mb-1">📋 ${escapeHtml(playerName)}'s Predictions</h3>
-          <p class="text-muted mb-4">Round-by-round team picks and points earned</p>`;
-
-        sections.forEach(section => {
-          if (section.matches.length === 0) return;
-          html += `<div class="section-title">${escapeHtml(section.label)}</div>
-            <table class="table table-bordered table-sm section-table mb-0">
-              <thead class="table-light"><tr><th style="width:70px;">#</th><th>Predicted Team</th><th style="width:110px;">Points</th></tr></thead>
-              <tbody>`;
-          section.matches.forEach(m => {
-            html += `<tr><td>${escapeHtml(m.matchNum)}</td><td>${escapeHtml(m.team)}</td><td>${escapeHtml(m.points)}</td></tr>`;
-          });
-          if (section.count) {
-            html += `<tr class="subtotal-row"><td colspan="2">${escapeHtml(section.count.label)}</td><td>${escapeHtml(section.count.value)}</td></tr>`;
-          }
-          if (section.subtotal !== null) {
-            html += `<tr class="subtotal-row"><td colspan="2">${escapeHtml(section.label)} Subtotal</td><td>${escapeHtml(section.subtotal)}</td></tr>`;
-          }
-          html += `</tbody></table>`;
-        });
+        // Build one column per round, each listing that round's team picks
+        // alphabetically as "TEAM (points)" — matching the reference layout.
+        const columns = sections
+          .filter(s => s.matches.length > 0)
+          .map(s => ({
+            label: s.label,
+            cells: s.matches
+              .slice()
+              .sort((a, b) => String(a.team).localeCompare(String(b.team)))
+              .map(m => `${m.team} (${m.points})`)
+          }));
 
         if (winnerRow) {
-          html += `<div class="section-title">🏆 Winner Prediction</div>
-            <table class="table table-bordered table-sm section-table mb-0">
-              <tbody><tr><td>Predicted Champion</td><td class="fw-bold">${escapeHtml(winnerRow.team)}</td><td style="width:110px;">${escapeHtml(winnerRow.points)}</td></tr></tbody>
-            </table>`;
+          columns.push({ label: 'Winner', cells: [`${winnerRow.team} (${winnerRow.points})`] });
         }
+
+        const maxRows = Math.max(0, ...columns.map(c => c.cells.length));
+
+        let html = `<h3 class="fw-bold mb-1">📋 ${escapeHtml(playerName)}'s Predictions</h3>
+          <p class="text-muted mb-4">Team picks and points earned, by round</p>`;
+
+        html += `<div class="table-responsive"><table class="table table-bordered table-sm section-table">
+          <thead class="table-dark"><tr>`;
+        columns.forEach(col => html += `<th>${escapeHtml(col.label)}</th>`);
+        html += `</tr></thead><tbody>`;
+        for (let r = 0; r < maxRows; r++) {
+          html += `<tr>`;
+          columns.forEach(col => html += `<td>${escapeHtml(col.cells[r] ?? '')}</td>`);
+          html += `</tr>`;
+        }
+        html += `</tbody></table></div>`;
+
+        // Compact subtotal summary strip
+        html += `<div class="d-flex flex-wrap gap-2 mt-3 mb-1">`;
+        sections.forEach(section => {
+          if (section.subtotal === null) return;
+          html += `<span class="badge bg-secondary p-2">${escapeHtml(section.label)}: ${escapeHtml(section.subtotal)}</span>`;
+          if (section.count) {
+            html += `<span class="badge bg-info text-dark p-2">${escapeHtml(section.count.label)}: ${escapeHtml(section.count.value)}</span>`;
+          }
+        });
+        html += `</div>`;
 
         html += `<div class="grand-total-card">
             <div>Grand Total</div>
