@@ -1667,8 +1667,13 @@
     async function buildGlobalLeaderboard(passCode) {
       const { data: rows, error } = await _supabase.rpc('get_leaderboard_data', { p_code: passCode });
 
-      if (error || !rows || rows.length === 0) {
-        alert("Authentication Failed.");
+      if (error) {
+        console.error('get_leaderboard_data error:', error);
+        alert("Authentication Failed: " + (error.message || "unknown server error. Check the browser console for details."));
+        return;
+      }
+      if (!rows || rows.length === 0) {
+        alert("Authentication Failed: no predictions were found for that code.");
         return;
       }
 
