@@ -890,14 +890,11 @@
       if (selectKittyRef) selectKittyRef.innerHTML = "";
       globalMatches.forEach(m => {
         const optText = `${m.team1} vs ${m.team2} [${m.game_id}]`;
-        const summary = voucherSummaryMap[m.game_id];
-        // Once a closed match's vouchers have all been swept to "used" (via Mark All Unused as
-        // Used), there's nothing left to mint for it — hide it from the Target Match Unit
-        // dropdown to keep the mint terminal focused on matches that still need vouchers.
-        // It stays visible in the Active Ledger dropdown so its final voucher state can still
-        // be reviewed.
-        const isFullySweptClosedMatch = m.status === 'Closed' && summary && summary.total > 0 && summary.unused === 0;
-        if (!isFullySweptClosedMatch) {
+        // The Target Match Unit dropdown is for minting new vouchers, which only makes
+        // sense for matches that are still Open — closed matches are excluded here
+        // regardless of voucher sweep state. They stay visible in the Active Ledger
+        // dropdown so their final voucher state can still be reviewed.
+        if (m.status === 'Open') {
           selectGen.innerHTML += `<option value="${m.game_id}">${optText}</option>`;
         }
         selectView.innerHTML += `<option value="${m.game_id}">${optText}</option>`;
