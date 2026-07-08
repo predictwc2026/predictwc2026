@@ -567,7 +567,9 @@
       container.innerHTML = "";
       const filtered = globalMatches
         .filter(m => m.status === currentFilterTab)
-        .sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
+        .sort((a, b) => currentFilterTab === 'Closed'
+          ? new Date(b.deadline) - new Date(a.deadline)   // most recently closed first
+          : new Date(a.deadline) - new Date(b.deadline)); // soonest-closing open match first
 
       if(filtered.length === 0) {
         container.innerHTML = `<div class="col-12 text-center text-muted p-5"><h5>No matching ${currentFilterTab.toLowerCase()} fixtures cataloged.</h5></div>`;
