@@ -488,9 +488,25 @@
     function getFlagUrl(countryName) {
       const cleanName = countryName.trim().toLowerCase();
       const flagMapping = {
-        "nepal": "np", "india": "in", "portugal": "pt", "brazil": "br", "argentina": "ar", 
+        "nepal": "np", "india": "in", "portugal": "pt", "brazil": "br", "argentina": "ar",
         "france": "fr", "spain": "es", "germany": "de", "england": "gb-eng", "croatia": "hr",
-        "cabo verde": "cv", "cape verde": "cv"
+        "cabo verde": "cv", "cape verde": "cv",
+        "switzerland": "ch", "sweden": "se", "senegal": "sn", "serbia": "rs",
+        "netherlands": "nl", "belgium": "be", "italy": "it", "poland": "pl",
+        "denmark": "dk", "norway": "no", "wales": "gb-wls", "scotland": "gb-sct",
+        "uruguay": "uy", "colombia": "co", "mexico": "mx", "canada": "ca",
+        "united states": "us", "usa": "us", "japan": "jp", "south korea": "kr",
+        "korea republic": "kr", "australia": "au", "morocco": "ma", "tunisia": "tn",
+        "algeria": "dz", "egypt": "eg", "nigeria": "ng", "ghana": "gh",
+        "cameroon": "cm", "ivory coast": "ci", "cote d'ivoire": "ci",
+        "saudi arabia": "sa", "qatar": "qa", "iran": "ir", "iraq": "iq",
+        "ecuador": "ec", "chile": "cl", "peru": "pe", "paraguay": "py",
+        "costa rica": "cr", "panama": "pa", "jamaica": "jm", "honduras": "hn",
+        "austria": "at", "czech republic": "cz", "czechia": "cz", "slovakia": "sk",
+        "slovenia": "si", "ukraine": "ua", "russia": "ru", "turkey": "tr",
+        "greece": "gr", "hungary": "hu", "romania": "ro", "finland": "fi",
+        "iceland": "is", "ireland": "ie", "northern ireland": "gb-nir",
+        "new zealand": "nz", "china": "cn", "china pr": "cn"
       };
       const code = flagMapping[cleanName] || cleanName.substring(0,2);
       return `https://flagcdn.com/w40/${code}.png`;
