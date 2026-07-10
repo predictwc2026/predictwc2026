@@ -753,7 +753,7 @@
         return;
       }
 
-      const { data: codeRows, error } = await _supabase.from('predictions').select('id').eq('code', entered).limit(1);
+      const { data: codeRows, error } = await _supabase.rpc('get_my_predictions', { p_code: entered });
       if (!error && codeRows && codeRows.length > 0) {
         winnersAuthModalInstance.hide();
         initWinnersPredictionPage();
