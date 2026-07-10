@@ -278,7 +278,7 @@
           <div id="wp-preview-summary" class="d-flex flex-wrap justify-content-center gap-2 mb-3"></div>
           <div class="table-responsive">
             <table class="table table-bordered align-middle text-center">
-              <thead class="table-dark"><tr><th style="width:100px;">Rank</th><th>Player(s) &amp; Points</th></tr></thead>
+              <thead class="table-dark"><tr><th style="width:100px;">Rank</th><th>Player(s) &amp; Points</th><th>Prize Amount</th></tr></thead>
               <tbody id="wp-preview-tbody"></tbody>
             </table>
           </div>
@@ -715,13 +715,27 @@
 
       const tbody = document.getElementById('wp-preview-tbody');
       if (!match) {
-        tbody.innerHTML = `<tr><td colspan="2" class="text-danger">No matching scenario found in the sheet for this combination.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="3" class="text-danger">No matching scenario found in the sheet for this combination.</td></tr>`;
       } else {
         tbody.innerHTML = match.ranks.map((cell, i) =>
-          `<tr><td class="fw-bold">Rank ${i + 1}</td><td class="text-start">${escapeHtml(cell)}</td></tr>`
+          `<tr><td class="fw-bold">Rank ${i + 1}</td><td class="text-start">${escapeHtml(cell)}</td><td class="fw-bold text-success">${wpFormatPrize(cell, i)}</td></tr>`
         ).join('');
       }
       previewEl.classList.remove('d-none');
+    }
+
+    const WP_PRIZE_AMOUNTS = [9225, 5125, 3075, 2050]; // Rank 1..4 total prize pool (NPR), split evenly among tied names
+
+    function wpFormatPrize(cellText, rankIndex) {
+      const totalPrize = WP_PRIZE_AMOUNTS[rankIndex];
+      const names = cellText.split(';').map(n => n.trim()).filter(Boolean);
+      const count = names.length || 1;
+      const perPerson = totalPrize / count;
+      const formattedPerPerson = perPerson.toLocaleString(undefined, { minimumFractionDigits: perPerson % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 });
+      if (count > 1) {
+        return `NPR ${formattedPerPerson} each <span class="text-muted small">(NPR ${totalPrize.toLocaleString()} split ${count} ways)</span>`;
+      }
+      return `NPR ${formattedPerPerson}`;
     }
 
     async function openWinnersPrediction() {
