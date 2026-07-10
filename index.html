@@ -37,6 +37,14 @@
     .kitty-blink-text { animation: kittyBlink 1.2s steps(1, end) infinite; }
     .kitty-banner { background: linear-gradient(135deg, #fff3cd, #ffe8a1); border: 1px solid #f0d264; border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; }
     .kitty-fee-note { font-size: 0.85rem; color: #6c757d; }
+    .wp-flag-card { cursor: pointer; border: 2px solid #dee2e6; border-radius: 12px; padding: 12px 10px; text-align: center; flex: 1 1 130px; max-width: 170px; min-height: 96px; background-color: #fff; transition: transform 0.1s ease, border-color 0.15s ease, background-color 0.15s ease; -webkit-tap-highlight-color: transparent; }
+    .wp-flag-card:active { transform: scale(0.96); }
+    .wp-flag-card.wp-selected { background-color: #fff9e6; border-color: #e0c04a; box-shadow: 0 2px 8px rgba(224,192,74,0.35); }
+    .wp-flag-card .flag-img { width: 60px; height: 40px; }
+    @media (max-width: 576px) {
+      .wp-flag-card { flex: 1 1 45%; max-width: none; padding: 14px 8px; min-height: 104px; }
+      .wp-flag-card .flag-img { width: 68px; height: 46px; }
+    }
   </style>
 </head>
 <body>
@@ -226,7 +234,7 @@
         <div id="wp-step-sf" class="mb-4">
           <h6 class="fw-bold text-secondary mb-3">Semifinals</h6>
           <div class="row g-3">
-            <div class="col-md-3 col-6">
+            <div class="col-md-3 col-12">
               <div class="p-2 border rounded text-center bg-light">
                 <div class="small fw-bold text-muted mb-1">Semifinal 1</div>
                 <img class="flag-img mb-1" src="" id="wp-sf1-flag">
@@ -234,17 +242,17 @@
                 <div class="badge bg-success mt-1">Confirmed</div>
               </div>
             </div>
-            <div class="col-md-3 col-6">
-              <div class="small fw-bold text-muted mb-1 text-center">Semifinal 2</div>
-              <div id="wp-sf2-options" class="d-flex gap-2 justify-content-center"></div>
+            <div class="col-md-3 col-12">
+              <div class="small fw-bold text-muted mb-2 text-center">Semifinal 2</div>
+              <div id="wp-sf2-options" class="d-flex gap-2 justify-content-center flex-wrap"></div>
             </div>
-            <div class="col-md-3 col-6">
-              <div class="small fw-bold text-muted mb-1 text-center">Semifinal 3</div>
-              <div id="wp-sf3-options" class="d-flex gap-2 justify-content-center"></div>
+            <div class="col-md-3 col-12">
+              <div class="small fw-bold text-muted mb-2 text-center">Semifinal 3</div>
+              <div id="wp-sf3-options" class="d-flex gap-2 justify-content-center flex-wrap"></div>
             </div>
-            <div class="col-md-3 col-6">
-              <div class="small fw-bold text-muted mb-1 text-center">Semifinal 4</div>
-              <div id="wp-sf4-options" class="d-flex gap-2 justify-content-center"></div>
+            <div class="col-md-3 col-12">
+              <div class="small fw-bold text-muted mb-2 text-center">Semifinal 4</div>
+              <div id="wp-sf4-options" class="d-flex gap-2 justify-content-center flex-wrap"></div>
             </div>
           </div>
         </div>
@@ -252,20 +260,20 @@
         <div id="wp-step-finals" class="mb-4 d-none">
           <h6 class="fw-bold text-secondary mb-3">Finals</h6>
           <div class="row g-3">
-            <div class="col-md-6">
-              <div class="small fw-bold text-muted mb-1 text-center">Final 1 Winner (Finalist A)</div>
-              <div id="wp-finalA-options" class="d-flex gap-2 justify-content-center"></div>
+            <div class="col-md-6 col-12">
+              <div class="small fw-bold text-muted mb-2 text-center">Final 1 Winner (Finalist A)</div>
+              <div id="wp-finalA-options" class="d-flex gap-2 justify-content-center flex-wrap"></div>
             </div>
-            <div class="col-md-6">
-              <div class="small fw-bold text-muted mb-1 text-center">Final 2 Winner (Finalist B)</div>
-              <div id="wp-finalB-options" class="d-flex gap-2 justify-content-center"></div>
+            <div class="col-md-6 col-12">
+              <div class="small fw-bold text-muted mb-2 text-center">Final 2 Winner (Finalist B)</div>
+              <div id="wp-finalB-options" class="d-flex gap-2 justify-content-center flex-wrap"></div>
             </div>
           </div>
         </div>
 
         <div id="wp-step-champion" class="mb-4 d-none">
           <h6 class="fw-bold text-secondary mb-3">Champion</h6>
-          <div id="wp-champion-options" class="d-flex gap-2 justify-content-center"></div>
+          <div id="wp-champion-options" class="d-flex gap-2 justify-content-center flex-wrap"></div>
         </div>
 
         <div id="wp-reset-row" class="text-center mb-3 d-none">
@@ -618,7 +626,7 @@
     function wpOptionCardHtml(group, value, checked) {
       const id = `wp-${group}-${value}`;
       return `
-        <label class="p-2 border rounded text-center" style="cursor:pointer; min-width:110px; ${checked ? 'background-color:#fff9e6; border-color:#e0c04a !important;' : 'background-color:#fff;'}" for="${id}">
+        <label class="wp-flag-card${checked ? ' wp-selected' : ''}" for="${id}">
           <input type="radio" class="d-none" name="wp-${group}" id="${id}" value="${value}" ${checked ? 'checked' : ''} onchange="onWpChange('${group}', '${value}')">
           <img class="flag-img mb-1" src="${wpFlag(value)}"><div class="fw-bold small">${value}</div>
         </label>`;
