@@ -11,6 +11,12 @@
   <style>
     body { background-color: #f4f7f6; font-family: system-ui, sans-serif; }
     .navbar { background-color: #3b0042 !important; }
+    #mainNavCollapse .nav-link { padding: 0.6rem 0.25rem; }
+    @media (max-width: 991.98px) {
+      #mainNavCollapse { background-color: #3b0042; border-radius: 8px; margin-top: 10px; padding: 6px 14px 10px; }
+      #mainNavCollapse .nav-link { border-bottom: 1px solid rgba(255,255,255,0.12); }
+      #mainNavCollapse .nav-link:last-child { border-bottom: none; }
+    }
     .card { border-radius: 12px; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.06); margin-bottom: 20px; }
     .flag-img { width: 45px; height: 30px; object-fit: cover; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.15); }
     .badge-open { background-color: #28a745; }
@@ -52,13 +58,18 @@
   <nav class="navbar navbar-dark sticky-top navbar-expand-lg">
     <div class="container">
       <a class="navbar-brand fw-bold" href="#" onclick="showPage('home')">🏆 World Cup Predictor</a>
-      <div class="navbar-nav ms-auto d-flex flex-row gap-3">
-        <a class="nav-link text-white fw-semibold" href="#" onclick="showPage('home')">Fixtures</a>
-        <a class="nav-link text-white fw-semibold" href="#" onclick="openSchedulePage()">Full Schedule</a>
-        <a class="nav-link text-white fw-semibold" href="#" onclick="promptLeaderboardAuth()">Leaderboard</a>
-        <a class="nav-link text-white fw-semibold" href="#" onclick="openMyPredictionsPage()">My Vault</a>
-        <a class="nav-link text-white fw-semibold" href="#" onclick="triggerSheetAuth()">Tournament Results</a>
-        <a class="nav-link text-white fw-semibold" href="#" onclick="openWinnersPrediction()">Winners Prediction</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavCollapse" aria-controls="mainNavCollapse" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="mainNavCollapse">
+        <div class="navbar-nav ms-auto gap-lg-3" data-bs-toggle="collapse" data-bs-target="#mainNavCollapse">
+          <a class="nav-link text-white fw-semibold" href="#" onclick="showPage('home')">Fixtures</a>
+          <a class="nav-link text-white fw-semibold" href="#" onclick="openSchedulePage()">Full Schedule</a>
+          <a class="nav-link text-white fw-semibold" href="#" onclick="promptLeaderboardAuth()">Leaderboard</a>
+          <a class="nav-link text-white fw-semibold" href="#" onclick="openMyPredictionsPage()">My Vault</a>
+          <a class="nav-link text-white fw-semibold" href="#" onclick="triggerSheetAuth()">Tournament Results</a>
+          <a class="nav-link text-white fw-semibold" href="#" onclick="openWinnersPrediction()">Winners Prediction</a>
+        </div>
       </div>
     </div>
   </nav>
@@ -243,8 +254,12 @@
               </div>
             </div>
             <div class="col-md-3 col-12">
-              <div class="small fw-bold text-muted mb-2 text-center">Semifinal 2</div>
-              <div id="wp-sf2-options" class="d-flex gap-2 justify-content-center flex-wrap"></div>
+              <div class="p-2 border rounded text-center bg-light">
+                <div class="small fw-bold text-muted mb-1">Semifinal 2</div>
+                <img class="flag-img mb-1" src="" id="wp-sf2-flag">
+                <div class="fw-bold">SPAIN</div>
+                <div class="badge bg-success mt-1">Confirmed</div>
+              </div>
             </div>
             <div class="col-md-3 col-12">
               <div class="small fw-bold text-muted mb-2 text-center">Semifinal 3</div>
@@ -474,12 +489,31 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-          <label class="form-label fw-semibold">Enter Password</label>
+          <label class="form-label fw-semibold">Enter your Admin PIN or official pass code</label>
           <input type="password" class="form-control" id="sheet-password-input" name="sheet-password-field-nofill" autocomplete="new-password" onkeydown="if(event.key==='Enter'){event.preventDefault(); submitSheetPasswordFromModal();}">
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
           <button type="button" class="btn btn-primary fw-bold" onclick="submitSheetPasswordFromModal()">View Results</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="leaderboardAuthModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold">🏆 Leaderboard Access</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <label class="form-label fw-semibold">Enter your Admin PIN or your official pass code</label>
+          <input type="password" class="form-control" id="leaderboard-auth-input" name="leaderboard-auth-field-nofill" autocomplete="new-password" onkeydown="if(event.key==='Enter'){event.preventDefault(); submitLeaderboardAuthFromModal();}">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary fw-bold" onclick="submitLeaderboardAuthFromModal()">Unlock</button>
         </div>
       </div>
     </div>
@@ -521,6 +555,7 @@
     let adminLoginModalInstance = null;
     let sheetPasswordModalInstance = null;
     let winnersAuthModalInstance = null;
+    let leaderboardAuthModalInstance = null;
     let temporaryPayloadCache = null;
     let pendingDraftVouchersArray = [];
     let currentUnusedVouchersCache = [];
@@ -570,6 +605,7 @@
       adminLoginModalInstance = new bootstrap.Modal(document.getElementById('adminLoginModal'));
       sheetPasswordModalInstance = new bootstrap.Modal(document.getElementById('sheetPasswordModal'));
       winnersAuthModalInstance = new bootstrap.Modal(document.getElementById('winnersAuthModal'));
+      leaderboardAuthModalInstance = new bootstrap.Modal(document.getElementById('leaderboardAuthModal'));
     };
 
     function showPage(pageId) {
@@ -615,6 +651,8 @@
     // Static scenario data extracted from FIFA_Semifinal_Scenarios.xlsx (Scenarios sheet).
     // Semifinal 1 is fixed to FRANCE per the bracket assumptions in that workbook's Notes sheet.
     const WP_SF1_FIXED = "FRANCE";
+    // Semifinal 2 (Belgium vs Spain) has now been played — Spain confirmed as the winner.
+    const WP_SF2_FIXED = "SPAIN";
     const WP_SCENARIOS = [{"sf2": "BELGIUM", "sf3": "ARGENTINA", "sf4": "ENGLAND", "finalistA": "FRANCE", "finalistB": "ARGENTINA", "champion": "ARGENTINA", "ranks": ["Mohan Lal Guro (575 pts)", "Pramod Pyakurel (530 pts)", "Gokarna (520 pts)", "Shirish Bajracharya (510 pts)"]}, {"sf2": "BELGIUM", "sf3": "ARGENTINA", "sf4": "ENGLAND", "finalistA": "FRANCE", "finalistB": "ARGENTINA", "champion": "FRANCE", "ranks": ["Likesh (530 pts)", "Mohan Lal Guro (525 pts)", "Rabin 1 (520 pts)", "Rinesh Pradhananga 1 (500 pts)"]}, {"sf2": "BELGIUM", "sf3": "ARGENTINA", "sf4": "ENGLAND", "finalistA": "FRANCE", "finalistB": "ENGLAND", "champion": "ENGLAND", "ranks": ["Mohan Lal Guro (485 pts)", "Romin Maharjan (470 pts); Rabin 1 (470 pts)", "Peshal Dhakal (460 pts)", "Devendra 1 (450 pts); Rinesh Pradhananga 1 (450 pts)"]}, {"sf2": "BELGIUM", "sf3": "ARGENTINA", "sf4": "ENGLAND", "finalistA": "FRANCE", "finalistB": "ENGLAND", "champion": "FRANCE", "ranks": ["Romin Maharjan (520 pts); Rabin 1 (520 pts)", "Rinesh Pradhananga 1 (500 pts)", "Likesh (490 pts); Sunil Khadka (490 pts)", "Mohan Lal Guro (485 pts)"]}, {"sf2": "BELGIUM", "sf3": "ARGENTINA", "sf4": "ENGLAND", "finalistA": "BELGIUM", "finalistB": "ARGENTINA", "champion": "ARGENTINA", "ranks": ["Mohan Lal Guro (535 pts)", "Pramod Pyakurel (530 pts)", "Gokarna (520 pts)", "Shirish Bajracharya (510 pts)"]}, {"sf2": "BELGIUM", "sf3": "ARGENTINA", "sf4": "ENGLAND", "finalistA": "BELGIUM", "finalistB": "ARGENTINA", "champion": "BELGIUM", "ranks": ["Mohan Lal Guro (485 pts)", "Pramod Pyakurel (480 pts)", "Gokarna (470 pts); Pradip Dhamala (470 pts)", "Ram sir (465 pts)"]}, {"sf2": "BELGIUM", "sf3": "ARGENTINA", "sf4": "ENGLAND", "finalistA": "BELGIUM", "finalistB": "ENGLAND", "champion": "BELGIUM", "ranks": ["Mohan Lal Guro (445 pts)", "Pramod Pyakurel (440 pts)", "Romin Maharjan (430 pts); Gokarna (430 pts); Rabin 1 (430 pts); Pradip Dhamala (430 pts)", "Ram sir (425 pts)"]}, {"sf2": "BELGIUM", "sf3": "ARGENTINA", "sf4": "ENGLAND", "finalistA": "BELGIUM", "finalistB": "ENGLAND", "champion": "ENGLAND", "ranks": ["Mohan Lal Guro (445 pts)", "Pramod Pyakurel (440 pts)", "Romin Maharjan (430 pts); Gokarna (430 pts); Rabin 1 (430 pts); Pradip Dhamala (430 pts)", "Ram sir (425 pts)"]}, {"sf2": "BELGIUM", "sf3": "ARGENTINA", "sf4": "NORWAY", "finalistA": "FRANCE", "finalistB": "ARGENTINA", "champion": "ARGENTINA", "ranks": ["Mohan Lal Guro (545 pts)", "Subash Sir (505 pts)", "Pramod Pyakurel (500 pts); Rabin 1 (500 pts)", "Prakash (490 pts); Gokarna (490 pts)"]}, {"sf2": "BELGIUM", "sf3": "ARGENTINA", "sf4": "NORWAY", "finalistA": "FRANCE", "finalistB": "ARGENTINA", "champion": "FRANCE", "ranks": ["Rabin 1 (550 pts)", "Likesh (530 pts)", "Rinesh Pradhananga 1 (500 pts)", "Mohan Lal Guro (495 pts)"]}, {"sf2": "BELGIUM", "sf3": "ARGENTINA", "sf4": "NORWAY", "finalistA": "FRANCE", "finalistB": "NORWAY", "champion": "NORWAY", "ranks": ["Rabin 1 (540 pts)", "Peshal Dhakal (460 pts)", "Mohan Lal Guro (455 pts)", "Devendra 1 (450 pts); Rinesh Pradhananga 1 (450 pts)"]}, {"sf2": "BELGIUM", "sf3": "ARGENTINA", "sf4": "NORWAY", "finalistA": "FRANCE", "finalistB": "NORWAY", "champion": "FRANCE", "ranks": ["Rabin 1 (590 pts)", "Rinesh Pradhananga 1 (500 pts)", "Likesh (490 pts); Sunil Khadka (490 pts)", "Peshal Dhakal (460 pts)"]}, {"sf2": "BELGIUM", "sf3": "ARGENTINA", "sf4": "NORWAY", "finalistA": "BELGIUM", "finalistB": "ARGENTINA", "champion": "ARGENTINA", "ranks": ["Mohan Lal Guro (505 pts)", "Pramod Pyakurel (500 pts)", "Gokarna (490 pts)", "Sanjaya Magaju (480 pts); Shirish Bajracharya (480 pts)"]}, {"sf2": "BELGIUM", "sf3": "ARGENTINA", "sf4": "NORWAY", "finalistA": "BELGIUM", "finalistB": "ARGENTINA", "champion": "BELGIUM", "ranks": ["Rabin 1 (460 pts)", "Bhasker1 (455 pts); Mohan Lal Guro (455 pts)", "Pramod Pyakurel (450 pts); Hemanta Pandey (450 pts)", "Likesh (440 pts); Gokarna (440 pts); Pradip Dhamala (440 pts)"]}, {"sf2": "BELGIUM", "sf3": "ARGENTINA", "sf4": "NORWAY", "finalistA": "BELGIUM", "finalistB": "NORWAY", "champion": "BELGIUM", "ranks": ["Rabin 1 (500 pts)", "Peshal Dhakal (420 pts)", "Bhasker1 (415 pts); Mohan Lal Guro (415 pts)", "Pramod Pyakurel (410 pts); Hemanta Pandey (410 pts); Devendra 1 (410 pts); Rinesh Pradhananga 1 (410 pts)"]}, {"sf2": "BELGIUM", "sf3": "ARGENTINA", "sf4": "NORWAY", "finalistA": "BELGIUM", "finalistB": "NORWAY", "champion": "NORWAY", "ranks": ["Rabin 1 (500 pts)", "Peshal Dhakal (420 pts)", "Bhasker1 (415 pts); Mohan Lal Guro (415 pts)", "Pramod Pyakurel (410 pts); Hemanta Pandey (410 pts); Devendra 1 (410 pts); Rinesh Pradhananga 1 (410 pts)"]}, {"sf2": "BELGIUM", "sf3": "SWITZERLAND", "sf4": "ENGLAND", "finalistA": "FRANCE", "finalistB": "SWITZERLAND", "champion": "FRANCE", "ranks": ["Rabin 1 (490 pts)", "Rinesh Pradhananga 1 (470 pts)", "Likesh (460 pts); Sunil Khadka (460 pts)", "Anup Maharjan (455 pts); Mohan Lal Guro (455 pts)"]}, {"sf2": "BELGIUM", "sf3": "SWITZERLAND", "sf4": "ENGLAND", "finalistA": "FRANCE", "finalistB": "SWITZERLAND", "champion": "SWITZERLAND", "ranks": ["Mohan Lal Guro (455 pts)", "Rabin 1 (440 pts)", "Bhasker2 (430 pts); Peshal Dhakal (430 pts)", "Sudip Khatri (420 pts); Devendra 1 (420 pts); Rinesh Pradhananga 1 (420 pts)"]}, {"sf2": "BELGIUM", "sf3": "SWITZERLAND", "sf4": "ENGLAND", "finalistA": "FRANCE", "finalistB": "ENGLAND", "champion": "ENGLAND", "ranks": ["Mohan Lal Guro (455 pts)", "Romin Maharjan (440 pts); Rabin 1 (440 pts)", "Bhasker2 (430 pts); Peshal Dhakal (430 pts)", "Sudip Khatri (420 pts); Devendra 1 (420 pts); Rinesh Pradhananga 1 (420 pts)"]}, {"sf2": "BELGIUM", "sf3": "SWITZERLAND", "sf4": "ENGLAND", "finalistA": "FRANCE", "finalistB": "ENGLAND", "champion": "FRANCE", "ranks": ["Romin Maharjan (490 pts); Rabin 1 (490 pts)", "Rinesh Pradhananga 1 (470 pts)", "Likesh (460 pts); Sunil Khadka (460 pts)", "Anup Maharjan (455 pts); Mohan Lal Guro (455 pts)"]}, {"sf2": "BELGIUM", "sf3": "SWITZERLAND", "sf4": "ENGLAND", "finalistA": "BELGIUM", "finalistB": "SWITZERLAND", "champion": "BELGIUM", "ranks": ["Mohan Lal Guro (415 pts)", "Pramod Pyakurel (410 pts); SAMIP SHAH (410 pts)", "Gokarna (400 pts); Rabin 1 (400 pts); Pradip Dhamala (400 pts)", "Ram sir (395 pts)"]}, {"sf2": "BELGIUM", "sf3": "SWITZERLAND", "sf4": "ENGLAND", "finalistA": "BELGIUM", "finalistB": "SWITZERLAND", "champion": "SWITZERLAND", "ranks": ["Mohan Lal Guro (415 pts)", "Pramod Pyakurel (410 pts); SAMIP SHAH (410 pts)", "Gokarna (400 pts); Rabin 1 (400 pts); Pradip Dhamala (400 pts)", "Ram sir (395 pts)"]}, {"sf2": "BELGIUM", "sf3": "SWITZERLAND", "sf4": "ENGLAND", "finalistA": "BELGIUM", "finalistB": "ENGLAND", "champion": "BELGIUM", "ranks": ["Mohan Lal Guro (415 pts)", "Pramod Pyakurel (410 pts); SAMIP SHAH (410 pts)", "Romin Maharjan (400 pts); Gokarna (400 pts); Rabin 1 (400 pts); Pradip Dhamala (400 pts)", "Ram sir (395 pts)"]}, {"sf2": "BELGIUM", "sf3": "SWITZERLAND", "sf4": "ENGLAND", "finalistA": "BELGIUM", "finalistB": "ENGLAND", "champion": "ENGLAND", "ranks": ["Mohan Lal Guro (415 pts)", "Pramod Pyakurel (410 pts); SAMIP SHAH (410 pts)", "Romin Maharjan (400 pts); Gokarna (400 pts); Rabin 1 (400 pts); Pradip Dhamala (400 pts)", "Ram sir (395 pts)"]}, {"sf2": "BELGIUM", "sf3": "SWITZERLAND", "sf4": "NORWAY", "finalistA": "FRANCE", "finalistB": "SWITZERLAND", "champion": "FRANCE", "ranks": ["Rabin 1 (520 pts)", "Rinesh Pradhananga 1 (470 pts)", "Likesh (460 pts); Sunil Khadka (460 pts)", "Anup Maharjan (455 pts)"]}, {"sf2": "BELGIUM", "sf3": "SWITZERLAND", "sf4": "NORWAY", "finalistA": "FRANCE", "finalistB": "SWITZERLAND", "champion": "SWITZERLAND", "ranks": ["Rabin 1 (470 pts)", "Bhasker2 (430 pts); Peshal Dhakal (430 pts)", "Mohan Lal Guro (425 pts)", "Sudip Khatri (420 pts); Devendra 1 (420 pts); Rinesh Pradhananga 1 (420 pts)"]}, {"sf2": "BELGIUM", "sf3": "SWITZERLAND", "sf4": "NORWAY", "finalistA": "FRANCE", "finalistB": "NORWAY", "champion": "NORWAY", "ranks": ["Rabin 1 (510 pts)", "Bhasker2 (430 pts); Peshal Dhakal (430 pts)", "Mohan Lal Guro (425 pts)", "Sudip Khatri (420 pts); Devendra 1 (420 pts); Rinesh Pradhananga 1 (420 pts)"]}, {"sf2": "BELGIUM", "sf3": "SWITZERLAND", "sf4": "NORWAY", "finalistA": "FRANCE", "finalistB": "NORWAY", "champion": "FRANCE", "ranks": ["Rabin 1 (560 pts)", "Rinesh Pradhananga 1 (470 pts)", "Likesh (460 pts); Sunil Khadka (460 pts)", "Anup Maharjan (455 pts)"]}, {"sf2": "BELGIUM", "sf3": "SWITZERLAND", "sf4": "NORWAY", "finalistA": "BELGIUM", "finalistB": "SWITZERLAND", "champion": "BELGIUM", "ranks": ["Rabin 1 (430 pts)", "Bhasker2 (390 pts); Peshal Dhakal (390 pts)", "Bhasker1 (385 pts); Mohan Lal Guro (385 pts)", "Pramod Pyakurel (380 pts); Sudip Khatri (380 pts); Hemanta Pandey (380 pts); Devendra 1 (380 pts); Rinesh Pradhananga 1 (380 pts); SAMIP SHAH (380 pts)"]}, {"sf2": "BELGIUM", "sf3": "SWITZERLAND", "sf4": "NORWAY", "finalistA": "BELGIUM", "finalistB": "SWITZERLAND", "champion": "SWITZERLAND", "ranks": ["Rabin 1 (430 pts)", "Bhasker2 (390 pts); Peshal Dhakal (390 pts)", "Bhasker1 (385 pts); Mohan Lal Guro (385 pts)", "Pramod Pyakurel (380 pts); Sudip Khatri (380 pts); Hemanta Pandey (380 pts); Devendra 1 (380 pts); Rinesh Pradhananga 1 (380 pts); SAMIP SHAH (380 pts)"]}, {"sf2": "BELGIUM", "sf3": "SWITZERLAND", "sf4": "NORWAY", "finalistA": "BELGIUM", "finalistB": "NORWAY", "champion": "BELGIUM", "ranks": ["Rabin 1 (470 pts)", "Bhasker2 (390 pts); Peshal Dhakal (390 pts)", "Bhasker1 (385 pts); Mohan Lal Guro (385 pts)", "Pramod Pyakurel (380 pts); Sudip Khatri (380 pts); Hemanta Pandey (380 pts); Devendra 1 (380 pts); Rinesh Pradhananga 1 (380 pts); SAMIP SHAH (380 pts)"]}, {"sf2": "BELGIUM", "sf3": "SWITZERLAND", "sf4": "NORWAY", "finalistA": "BELGIUM", "finalistB": "NORWAY", "champion": "NORWAY", "ranks": ["Rabin 1 (470 pts)", "Bhasker2 (390 pts); Peshal Dhakal (390 pts)", "Bhasker1 (385 pts); Mohan Lal Guro (385 pts)", "Pramod Pyakurel (380 pts); Sudip Khatri (380 pts); Hemanta Pandey (380 pts); Devendra 1 (380 pts); Rinesh Pradhananga 1 (380 pts); SAMIP SHAH (380 pts)"]}, {"sf2": "SPAIN", "sf3": "ARGENTINA", "sf4": "ENGLAND", "finalistA": "FRANCE", "finalistB": "ARGENTINA", "champion": "ARGENTINA", "ranks": ["Mohan Lal Guro (605 pts)", "Pramod Pyakurel (560 pts)", "Gokarna (550 pts)", "Shirish Bajracharya (540 pts)"]}, {"sf2": "SPAIN", "sf3": "ARGENTINA", "sf4": "ENGLAND", "finalistA": "FRANCE", "finalistB": "ARGENTINA", "champion": "FRANCE", "ranks": ["Likesh (560 pts)", "Mohan Lal Guro (555 pts)", "Rinesh Pradhananga 1 (530 pts)", "Sunil Khadka (520 pts)"]}, {"sf2": "SPAIN", "sf3": "ARGENTINA", "sf4": "ENGLAND", "finalistA": "FRANCE", "finalistB": "ENGLAND", "champion": "ENGLAND", "ranks": ["Mohan Lal Guro (515 pts)", "Romin Maharjan (500 pts)", "Peshal Dhakal (490 pts)", "Devendra 1 (480 pts); Rinesh Pradhananga 1 (480 pts)"]}, {"sf2": "SPAIN", "sf3": "ARGENTINA", "sf4": "ENGLAND", "finalistA": "FRANCE", "finalistB": "ENGLAND", "champion": "FRANCE", "ranks": ["Romin Maharjan (550 pts)", "Rinesh Pradhananga 1 (530 pts)", "Likesh (520 pts); Sunil Khadka (520 pts)", "Mohan Lal Guro (515 pts)"]}, {"sf2": "SPAIN", "sf3": "ARGENTINA", "sf4": "ENGLAND", "finalistA": "SPAIN", "finalistB": "ARGENTINA", "champion": "ARGENTINA", "ranks": ["Pramod Pyakurel (600 pts)", "Gokarna (590 pts)", "Shirish Bajracharya (580 pts)", "Mohan Lal Guro (565 pts)"]}, {"sf2": "SPAIN", "sf3": "ARGENTINA", "sf4": "ENGLAND", "finalistA": "SPAIN", "finalistB": "ARGENTINA", "champion": "SPAIN", "ranks": ["Pradip Dhamala (590 pts)", "Ram sir (585 pts)", "Abhishek (580 pts); Santosh Neupane (580 pts)", "Bhasker1 (575 pts)"]}, {"sf2": "SPAIN", "sf3": "ARGENTINA", "sf4": "ENGLAND", "finalistA": "SPAIN", "finalistB": "ENGLAND", "champion": "ENGLAND", "ranks": ["Pramod Pyakurel (510 pts)", "Gokarna (500 pts); Pradip Dhamala (500 pts)", "Ram sir (495 pts)", "Abhishek (490 pts); Santosh Neupane (490 pts); Shirish Bajracharya (490 pts)"]}, {"sf2": "SPAIN", "sf3": "ARGENTINA", "sf4": "ENGLAND", "finalistA": "SPAIN", "finalistB": "ENGLAND", "champion": "SPAIN", "ranks": ["Pradip Dhamala (550 pts)", "Ram sir (545 pts)", "Abhishek (540 pts); Santosh Neupane (540 pts)", "Bhasker1 (535 pts)"]}, {"sf2": "SPAIN", "sf3": "ARGENTINA", "sf4": "NORWAY", "finalistA": "FRANCE", "finalistB": "ARGENTINA", "champion": "ARGENTINA", "ranks": ["Mohan Lal Guro (575 pts)", "Subash Sir (535 pts)", "Pramod Pyakurel (530 pts)", "Prakash (520 pts); Gokarna (520 pts)"]}, {"sf2": "SPAIN", "sf3": "ARGENTINA", "sf4": "NORWAY", "finalistA": "FRANCE", "finalistB": "ARGENTINA", "champion": "FRANCE", "ranks": ["Likesh (560 pts)", "Rinesh Pradhananga 1 (530 pts)", "Mohan Lal Guro (525 pts)", "Sunil Khadka (520 pts); Rabin 1 (520 pts)"]}, {"sf2": "SPAIN", "sf3": "ARGENTINA", "sf4": "NORWAY", "finalistA": "FRANCE", "finalistB": "NORWAY", "champion": "NORWAY", "ranks": ["Rabin 1 (510 pts)", "Peshal Dhakal (490 pts)", "Mohan Lal Guro (485 pts)", "Devendra 1 (480 pts); Rinesh Pradhananga 1 (480 pts)"]}, {"sf2": "SPAIN", "sf3": "ARGENTINA", "sf4": "NORWAY", "finalistA": "FRANCE", "finalistB": "NORWAY", "champion": "FRANCE", "ranks": ["Rabin 1 (560 pts)", "Rinesh Pradhananga 1 (530 pts)", "Likesh (520 pts); Sunil Khadka (520 pts)", "Peshal Dhakal (490 pts)"]}, {"sf2": "SPAIN", "sf3": "ARGENTINA", "sf4": "NORWAY", "finalistA": "SPAIN", "finalistB": "ARGENTINA", "champion": "ARGENTINA", "ranks": ["Pramod Pyakurel (570 pts)", "Gokarna (560 pts)", "Sanjaya Magaju (550 pts); Shirish Bajracharya (550 pts)", "Mohan Lal Guro (535 pts)"]}, {"sf2": "SPAIN", "sf3": "ARGENTINA", "sf4": "NORWAY", "finalistA": "SPAIN", "finalistB": "ARGENTINA", "champion": "SPAIN", "ranks": ["Bhasker1 (575 pts)", "Hemanta Pandey (570 pts)", "Pradip Dhamala (560 pts)", "Ram sir (555 pts); Rinesh Pradhananga 2 (555 pts)"]}, {"sf2": "SPAIN", "sf3": "ARGENTINA", "sf4": "NORWAY", "finalistA": "SPAIN", "finalistB": "NORWAY", "champion": "NORWAY", "ranks": ["Bhasker1 (485 pts)", "Pramod Pyakurel (480 pts); Hemanta Pandey (480 pts)", "Gokarna (470 pts); Rabin 1 (470 pts); Pradip Dhamala (470 pts)", "Ram sir (465 pts); Rinesh Pradhananga 2 (465 pts); Bikesh Shrestha (465 pts)"]}, {"sf2": "SPAIN", "sf3": "ARGENTINA", "sf4": "NORWAY", "finalistA": "SPAIN", "finalistB": "NORWAY", "champion": "SPAIN", "ranks": ["Bhasker1 (535 pts)", "Hemanta Pandey (530 pts)", "Pradip Dhamala (520 pts)", "Ram sir (515 pts); Rinesh Pradhananga 2 (515 pts)"]}, {"sf2": "SPAIN", "sf3": "SWITZERLAND", "sf4": "ENGLAND", "finalistA": "FRANCE", "finalistB": "SWITZERLAND", "champion": "FRANCE", "ranks": ["Rinesh Pradhananga 1 (500 pts)", "Likesh (490 pts); Sunil Khadka (490 pts)", "Anup Maharjan (485 pts); Mohan Lal Guro (485 pts)", "Romin Maharjan (480 pts)"]}, {"sf2": "SPAIN", "sf3": "SWITZERLAND", "sf4": "ENGLAND", "finalistA": "FRANCE", "finalistB": "SWITZERLAND", "champion": "SWITZERLAND", "ranks": ["Mohan Lal Guro (485 pts)", "Bhasker2 (460 pts); Peshal Dhakal (460 pts)", "Sudip Khatri (450 pts); Devendra 1 (450 pts); Rinesh Pradhananga 1 (450 pts)", "Prajwol Maharjan (445 pts); bipul (445 pts)"]}, {"sf2": "SPAIN", "sf3": "SWITZERLAND", "sf4": "ENGLAND", "finalistA": "FRANCE", "finalistB": "ENGLAND", "champion": "ENGLAND", "ranks": ["Mohan Lal Guro (485 pts)", "Romin Maharjan (470 pts)", "Bhasker2 (460 pts); Peshal Dhakal (460 pts)", "Sudip Khatri (450 pts); Devendra 1 (450 pts); Rinesh Pradhananga 1 (450 pts)"]}, {"sf2": "SPAIN", "sf3": "SWITZERLAND", "sf4": "ENGLAND", "finalistA": "FRANCE", "finalistB": "ENGLAND", "champion": "FRANCE", "ranks": ["Romin Maharjan (520 pts)", "Rinesh Pradhananga 1 (500 pts)", "Likesh (490 pts); Sunil Khadka (490 pts)", "Anup Maharjan (485 pts); Mohan Lal Guro (485 pts)"]}, {"sf2": "SPAIN", "sf3": "SWITZERLAND", "sf4": "ENGLAND", "finalistA": "SPAIN", "finalistB": "SWITZERLAND", "champion": "SPAIN", "ranks": ["Pradip Dhamala (520 pts)", "Ram sir (515 pts)", "Abhishek (510 pts); Santosh Neupane (510 pts)", "Bhasker1 (505 pts)"]}, {"sf2": "SPAIN", "sf3": "SWITZERLAND", "sf4": "ENGLAND", "finalistA": "SPAIN", "finalistB": "SWITZERLAND", "champion": "SWITZERLAND", "ranks": ["Pramod Pyakurel (480 pts); SAMIP SHAH (480 pts)", "Gokarna (470 pts); Pradip Dhamala (470 pts)", "Ram sir (465 pts)", "Abhishek (460 pts); Santosh Neupane (460 pts); Shirish Bajracharya (460 pts)"]}, {"sf2": "SPAIN", "sf3": "SWITZERLAND", "sf4": "ENGLAND", "finalistA": "SPAIN", "finalistB": "ENGLAND", "champion": "ENGLAND", "ranks": ["Pramod Pyakurel (480 pts); SAMIP SHAH (480 pts)", "Gokarna (470 pts); Pradip Dhamala (470 pts)", "Ram sir (465 pts)", "Abhishek (460 pts); Santosh Neupane (460 pts); Shirish Bajracharya (460 pts)"]}, {"sf2": "SPAIN", "sf3": "SWITZERLAND", "sf4": "ENGLAND", "finalistA": "SPAIN", "finalistB": "ENGLAND", "champion": "SPAIN", "ranks": ["Pradip Dhamala (520 pts)", "Ram sir (515 pts)", "Abhishek (510 pts); Santosh Neupane (510 pts)", "Bhasker1 (505 pts)"]}, {"sf2": "SPAIN", "sf3": "SWITZERLAND", "sf4": "NORWAY", "finalistA": "FRANCE", "finalistB": "SWITZERLAND", "champion": "FRANCE", "ranks": ["Rinesh Pradhananga 1 (500 pts)", "Likesh (490 pts); Sunil Khadka (490 pts); Rabin 1 (490 pts)", "Anup Maharjan (485 pts)", "Bhasker2 (460 pts); Peshal Dhakal (460 pts)"]}, {"sf2": "SPAIN", "sf3": "SWITZERLAND", "sf4": "NORWAY", "finalistA": "FRANCE", "finalistB": "SWITZERLAND", "champion": "SWITZERLAND", "ranks": ["Bhasker2 (460 pts); Peshal Dhakal (460 pts)", "Mohan Lal Guro (455 pts)", "Sudip Khatri (450 pts); Devendra 1 (450 pts); Rinesh Pradhananga 1 (450 pts)", "Prajwol Maharjan (445 pts)"]}, {"sf2": "SPAIN", "sf3": "SWITZERLAND", "sf4": "NORWAY", "finalistA": "FRANCE", "finalistB": "NORWAY", "champion": "NORWAY", "ranks": ["Rabin 1 (480 pts)", "Bhasker2 (460 pts); Peshal Dhakal (460 pts)", "Mohan Lal Guro (455 pts)", "Sudip Khatri (450 pts); Devendra 1 (450 pts); Rinesh Pradhananga 1 (450 pts)"]}, {"sf2": "SPAIN", "sf3": "SWITZERLAND", "sf4": "NORWAY", "finalistA": "FRANCE", "finalistB": "NORWAY", "champion": "FRANCE", "ranks": ["Rabin 1 (530 pts)", "Rinesh Pradhananga 1 (500 pts)", "Likesh (490 pts); Sunil Khadka (490 pts)", "Anup Maharjan (485 pts)"]}, {"sf2": "SPAIN", "sf3": "SWITZERLAND", "sf4": "NORWAY", "finalistA": "SPAIN", "finalistB": "SWITZERLAND", "champion": "SPAIN", "ranks": ["Bhasker1 (505 pts)", "Hemanta Pandey (500 pts)", "Pradip Dhamala (490 pts)", "Ram sir (485 pts); Rinesh Pradhananga 2 (485 pts)"]}, {"sf2": "SPAIN", "sf3": "SWITZERLAND", "sf4": "NORWAY", "finalistA": "SPAIN", "finalistB": "SWITZERLAND", "champion": "SWITZERLAND", "ranks": ["Bhasker1 (455 pts)", "Pramod Pyakurel (450 pts); Hemanta Pandey (450 pts); SAMIP SHAH (450 pts)", "Gokarna (440 pts); Rabin 2 (440 pts); Pradip Dhamala (440 pts)", "Ram sir (435 pts); Rinesh Pradhananga 2 (435 pts); Bikesh Shrestha (435 pts)"]}, {"sf2": "SPAIN", "sf3": "SWITZERLAND", "sf4": "NORWAY", "finalistA": "SPAIN", "finalistB": "NORWAY", "champion": "NORWAY", "ranks": ["Bhasker1 (455 pts)", "Pramod Pyakurel (450 pts); Hemanta Pandey (450 pts); SAMIP SHAH (450 pts)", "Gokarna (440 pts); Rabin 1 (440 pts); Rabin 2 (440 pts); Pradip Dhamala (440 pts)", "Ram sir (435 pts); Rinesh Pradhananga 2 (435 pts); Bikesh Shrestha (435 pts)"]}, {"sf2": "SPAIN", "sf3": "SWITZERLAND", "sf4": "NORWAY", "finalistA": "SPAIN", "finalistB": "NORWAY", "champion": "SPAIN", "ranks": ["Bhasker1 (505 pts)", "Hemanta Pandey (500 pts)", "Pradip Dhamala (490 pts)", "Ram sir (485 pts); Rinesh Pradhananga 2 (485 pts)"]}];
 
     let wpSelection = { sf2: null, sf3: null, sf4: null, finalistA: null, finalistB: null, champion: null };
@@ -638,12 +676,14 @@
     }
 
     function initWinnersPredictionPage() {
-      wpSelection = { sf2: null, sf3: null, sf4: null, finalistA: null, finalistB: null, champion: null };
+      wpSelection = { sf2: WP_SF2_FIXED, sf3: null, sf4: null, finalistA: null, finalistB: null, champion: null };
       document.getElementById('wp-sf1-flag').src = wpFlag(WP_SF1_FIXED);
-      wpRenderGroup('wp-sf2-options', 'sf2', ['BELGIUM', 'SPAIN']);
+      document.getElementById('wp-sf2-flag').src = wpFlag(WP_SF2_FIXED);
       wpRenderGroup('wp-sf3-options', 'sf3', ['ARGENTINA', 'SWITZERLAND']);
       wpRenderGroup('wp-sf4-options', 'sf4', ['ENGLAND', 'NORWAY']);
-      document.getElementById('wp-step-finals').classList.add('d-none');
+      document.getElementById('wp-step-finals').classList.remove('d-none');
+      wpRenderGroup('wp-finalA-options', 'finalistA', [WP_SF1_FIXED, WP_SF2_FIXED]);
+      document.getElementById('wp-finalB-options').innerHTML = '<p class="text-muted small mb-0">Pick Semifinal 3 &amp; 4 first</p>';
       document.getElementById('wp-step-champion').classList.add('d-none');
       document.getElementById('wp-preview').classList.add('d-none');
       document.getElementById('wp-reset-row').classList.add('d-none');
@@ -658,30 +698,21 @@
       document.getElementById('wp-reset-row').classList.remove('d-none');
 
       // Re-render the semifinal group just chosen so the highlight updates.
-      if (group === 'sf2') wpRenderGroup('wp-sf2-options', 'sf2', ['BELGIUM', 'SPAIN']);
       if (group === 'sf3') wpRenderGroup('wp-sf3-options', 'sf3', ['ARGENTINA', 'SWITZERLAND']);
       if (group === 'sf4') wpRenderGroup('wp-sf4-options', 'sf4', ['ENGLAND', 'NORWAY']);
 
-      // Once SF2 is picked, Final 1 is between France (SF1) and the SF2 winner.
-      if (wpSelection.sf2) {
-        document.getElementById('wp-step-finals').classList.remove('d-none');
-        wpRenderGroup('wp-finalA-options', 'finalistA', [WP_SF1_FIXED, wpSelection.sf2]);
-        // If the previously selected Finalist A is no longer a valid option, clear it.
-        if (wpSelection.finalistA && ![WP_SF1_FIXED, wpSelection.sf2].includes(wpSelection.finalistA)) {
-          wpSelection.finalistA = null;
-        }
-      }
-
       // Once SF3 and SF4 are both picked, Final 2 is between those two winners.
       if (wpSelection.sf3 && wpSelection.sf4) {
-        document.getElementById('wp-step-finals').classList.remove('d-none');
         wpRenderGroup('wp-finalB-options', 'finalistB', [wpSelection.sf3, wpSelection.sf4]);
         if (wpSelection.finalistB && ![wpSelection.sf3, wpSelection.sf4].includes(wpSelection.finalistB)) {
           wpSelection.finalistB = null;
         }
+      } else {
+        document.getElementById('wp-finalB-options').innerHTML = '<p class="text-muted small mb-0">Pick Semifinal 3 &amp; 4 first</p>';
+        wpSelection.finalistB = null;
       }
 
-      if (group === 'finalistA') wpRenderGroup('wp-finalA-options', 'finalistA', [WP_SF1_FIXED, wpSelection.sf2]);
+      if (group === 'finalistA') wpRenderGroup('wp-finalA-options', 'finalistA', [WP_SF1_FIXED, WP_SF2_FIXED]);
       if (group === 'finalistB') wpRenderGroup('wp-finalB-options', 'finalistB', [wpSelection.sf3, wpSelection.sf4]);
 
       // Once both finalists are picked, show the Champion choice.
@@ -1949,9 +1980,40 @@
     }
 
     async function promptLeaderboardAuth() {
-      const passCode = prompt("Enter your prediction validation token to view the standings:");
-      if (!passCode) return;
-      buildGlobalLeaderboard(passCode);
+      document.getElementById('leaderboard-auth-input').value = "";
+      leaderboardAuthModalInstance.show();
+      setTimeout(() => {
+        const field = document.getElementById('leaderboard-auth-input');
+        field.value = "";
+        field.focus();
+      }, 300);
+    }
+
+    async function submitLeaderboardAuthFromModal() {
+      const entered = document.getElementById('leaderboard-auth-input').value;
+      if (!entered) return;
+
+      const { data: isAdminPin } = await _supabase.rpc('verify_admin_pin', { entered_pin: entered });
+      if (isAdminPin === true) {
+        isAdminAuthenticated = true;
+        adminPinCache = entered;
+        leaderboardAuthModalInstance.hide();
+
+        // Try an admin-only RPC first (bypasses the per-code check). If your Supabase
+        // project doesn't have this function yet, this will fail gracefully below.
+        const { data: adminRows, error: adminError } = await _supabase.rpc('get_leaderboard_data_admin');
+        if (!adminError && adminRows && adminRows.length > 0) {
+          renderGlobalLeaderboard(adminRows);
+          return;
+        }
+
+        console.warn('get_leaderboard_data_admin unavailable, falling back:', adminError);
+        alert("Admin PIN accepted. However, the Leaderboard is fetched using a participant's code as its query key, and no admin-only 'get_leaderboard_data_admin' database function exists yet to bypass that. Please enter any one valid participant code instead to view the board, or add a 'get_leaderboard_data_admin()' RPC on Supabase (same output shape as 'get_leaderboard_data', without the code check) so Admin PIN can load it directly next time.");
+        return;
+      }
+
+      leaderboardAuthModalInstance.hide();
+      buildGlobalLeaderboard(entered);
     }
 
     async function buildGlobalLeaderboard(passCode) {
@@ -1966,7 +2028,10 @@
         alert("Authentication Failed: no predictions were found for that code.");
         return;
       }
+      renderGlobalLeaderboard(rows);
+    }
 
+    function renderGlobalLeaderboard(rows) {
       let matchMap = {}; let concludedGamesSet = new Set();
       rows.forEach(r => {
         if (!matchMap[r.game_id]) {
@@ -2363,14 +2428,25 @@
       const enteredPw = document.getElementById('sheet-password-input').value;
       if (!enteredPw) return;
 
-      const { data: isAuthorized } = await _supabase.rpc('verify_sheet_password', { entered_pw: enteredPw });
-      if (isAuthorized === true) {
+      const { data: isAdminPin } = await _supabase.rpc('verify_admin_pin', { entered_pin: enteredPw });
+      if (isAdminPin === true) {
+        isAdminAuthenticated = true;
+        adminPinCache = enteredPw;
         sheetPasswordModalInstance.hide();
         showPage('sheet');
         loadGoogleSheetData('475091993'); // default to Summary tab
-      } else {
-        alert("Incorrect password.");
+        return;
       }
+
+      const { data: codeRows, error } = await _supabase.rpc('get_my_predictions', { p_code: enteredPw });
+      if (!error && codeRows && codeRows.length > 0) {
+        sheetPasswordModalInstance.hide();
+        showPage('sheet');
+        loadGoogleSheetData('475091993'); // default to Summary tab
+        return;
+      }
+
+      alert("Access denied: invalid PIN or code.");
     }
 
     function switchSheetTab(gid, linkEl) {
