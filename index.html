@@ -247,78 +247,37 @@
       <button class="btn btn-secondary mb-3" onclick="showPage('home')">← Back to Fixtures</button>
       <div class="card p-4">
         <h3 class="fw-bold mb-1">🔮 Winners Prediction</h3>
-        <p class="text-muted mb-4">All four semifinalists are confirmed — pick your finalists and champion to see who ends up ranked where, computed live from the Semifinal Scenarios sheet.</p>
+        <p class="text-muted mb-4">The Final is set: <b>Spain vs Argentina</b>. Here's how the prize payouts look under each possible outcome.</p>
 
-        <div id="wp-step-sf" class="mb-4">
-          <h6 class="fw-bold text-secondary mb-3">Semifinals</h6>
-          <div class="row g-3">
-            <div class="col-md-3 col-12">
-              <div class="p-2 border rounded text-center bg-light">
-                <div class="small fw-bold text-muted mb-1">Semifinal 1</div>
-                <img class="flag-img mb-1" src="" id="wp-sf1-flag">
-                <div class="fw-bold">FRANCE</div>
-                <div class="badge bg-success mt-1">Confirmed</div>
-              </div>
-            </div>
-            <div class="col-md-3 col-12">
-              <div class="p-2 border rounded text-center bg-light">
-                <div class="small fw-bold text-muted mb-1">Semifinal 2</div>
-                <img class="flag-img mb-1" src="" id="wp-sf2-flag">
-                <div class="fw-bold">SPAIN</div>
-                <div class="badge bg-success mt-1">Confirmed</div>
-              </div>
-            </div>
-            <div class="col-md-3 col-12">
-              <div class="p-2 border rounded text-center bg-light">
-                <div class="small fw-bold text-muted mb-1">Semifinal 3</div>
-                <img class="flag-img mb-1" src="" id="wp-sf3-flag">
-                <div class="fw-bold">ARGENTINA</div>
-                <div class="badge bg-success mt-1">Confirmed</div>
-              </div>
-            </div>
-            <div class="col-md-3 col-12">
-              <div class="p-2 border rounded text-center bg-light">
-                <div class="small fw-bold text-muted mb-1">Semifinal 4</div>
-                <img class="flag-img mb-1" src="" id="wp-sf4-flag">
-                <div class="fw-bold">ENGLAND</div>
-                <div class="badge bg-success mt-1">Confirmed</div>
-              </div>
+        <div class="row g-4">
+          <div class="col-md-6 col-12">
+            <h5 class="fw-bold text-center mb-3">🇪🇸 If Spain Wins the Final</h5>
+            <div class="table-responsive">
+              <table class="table table-bordered align-middle text-center">
+                <thead class="table-dark"><tr><th style="width:90px;">Rank</th><th>Player(s) &amp; Points</th><th>Prize Amount</th></tr></thead>
+                <tbody>
+                  <tr><td class="fw-bold">Rank 1</td><td class="text-start">Pradip Dhamala (590 pts)</td><td class="fw-bold text-success">NPR 9,225</td></tr>
+                  <tr><td class="fw-bold">Rank 2</td><td class="text-start">Ram sir (585 pts)</td><td class="fw-bold text-success">NPR 5,125</td></tr>
+                  <tr><td class="fw-bold">Rank 3</td><td class="text-start">Abhishek (580 pts); Santosh Neupane (580 pts)</td><td class="fw-bold text-success">NPR 1,537.50 each <span class="text-muted small d-block">(NPR 3,075 split 2 ways)</span></td></tr>
+                  <tr><td class="fw-bold">Rank 4</td><td class="text-start">Bhasker1 (575 pts)</td><td class="fw-bold text-success">NPR 2,050</td></tr>
+                </tbody>
+              </table>
             </div>
           </div>
-        </div>
 
-        <div id="wp-step-finals" class="mb-4 d-none">
-          <h6 class="fw-bold text-secondary mb-3">Finals</h6>
-          <div class="row g-3">
-            <div class="col-md-6 col-12">
-              <div class="small fw-bold text-muted mb-2 text-center">Final 1 Winner (Finalist A)</div>
-              <div id="wp-finalA-options" class="d-flex gap-2 justify-content-center flex-wrap"></div>
+          <div class="col-md-6 col-12">
+            <h5 class="fw-bold text-center mb-3">🇦🇷 If Argentina Wins the Final</h5>
+            <div class="table-responsive">
+              <table class="table table-bordered align-middle text-center">
+                <thead class="table-dark"><tr><th style="width:90px;">Rank</th><th>Player(s) &amp; Points</th><th>Prize Amount</th></tr></thead>
+                <tbody>
+                  <tr><td class="fw-bold">Rank 1</td><td class="text-start">Pramod Pyakurel (600 pts)</td><td class="fw-bold text-success">NPR 9,225</td></tr>
+                  <tr><td class="fw-bold">Rank 2</td><td class="text-start">Gokarna (590 pts)</td><td class="fw-bold text-success">NPR 5,125</td></tr>
+                  <tr><td class="fw-bold">Rank 3</td><td class="text-start">Shirish Bajracharya (580 pts)</td><td class="fw-bold text-success">NPR 3,075</td></tr>
+                  <tr><td class="fw-bold">Rank 4</td><td class="text-start">Mohan Lal Guro (565 pts)</td><td class="fw-bold text-success">NPR 2,050</td></tr>
+                </tbody>
+              </table>
             </div>
-            <div class="col-md-6 col-12">
-              <div class="small fw-bold text-muted mb-2 text-center">Final 2 Winner (Finalist B)</div>
-              <div id="wp-finalB-options" class="d-flex gap-2 justify-content-center flex-wrap"></div>
-            </div>
-          </div>
-        </div>
-
-        <div id="wp-step-champion" class="mb-4 d-none">
-          <h6 class="fw-bold text-secondary mb-3">Champion</h6>
-          <div id="wp-champion-options" class="d-flex gap-2 justify-content-center flex-wrap"></div>
-        </div>
-
-        <div id="wp-reset-row" class="text-center mb-3 d-none">
-          <button class="btn btn-outline-secondary btn-sm" onclick="resetWinnersPrediction()">🔄 Start Over</button>
-        </div>
-
-        <div id="wp-preview" class="d-none">
-          <hr>
-          <h5 class="fw-bold text-center mb-3">📊 Matching Scenario Preview</h5>
-          <div id="wp-preview-summary" class="d-flex flex-wrap justify-content-center gap-2 mb-3"></div>
-          <div class="table-responsive">
-            <table class="table table-bordered align-middle text-center">
-              <thead class="table-dark"><tr><th style="width:100px;">Rank</th><th>Player(s) &amp; Points</th><th>Prize Amount</th></tr></thead>
-              <tbody id="wp-preview-tbody"></tbody>
-            </table>
           </div>
         </div>
       </div>
@@ -768,17 +727,8 @@
     }
 
     function initWinnersPredictionPage() {
-      wpSelection = { sf2: WP_SF2_FIXED, sf3: WP_SF3_FIXED, sf4: WP_SF4_FIXED, finalistA: null, finalistB: null, champion: null };
-      document.getElementById('wp-sf1-flag').src = wpFlag(WP_SF1_FIXED);
-      document.getElementById('wp-sf2-flag').src = wpFlag(WP_SF2_FIXED);
-      document.getElementById('wp-sf3-flag').src = wpFlag(WP_SF3_FIXED);
-      document.getElementById('wp-sf4-flag').src = wpFlag(WP_SF4_FIXED);
-      document.getElementById('wp-step-finals').classList.remove('d-none');
-      wpRenderGroup('wp-finalA-options', 'finalistA', [WP_SF1_FIXED, WP_SF2_FIXED]);
-      wpRenderGroup('wp-finalB-options', 'finalistB', [WP_SF3_FIXED, WP_SF4_FIXED]);
-      document.getElementById('wp-step-champion').classList.add('d-none');
-      document.getElementById('wp-preview').classList.add('d-none');
-      document.getElementById('wp-reset-row').classList.add('d-none');
+      // The Winners Prediction page is now a static side-by-side scenario table
+      // (Final is fixed: Spain vs Argentina), so no dynamic setup is needed here anymore.
     }
 
     function resetWinnersPrediction() {
