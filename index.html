@@ -424,7 +424,7 @@
       <div class="card p-4 mb-4">
         <h4 class="fw-bold mb-3">📜 Default Terms &amp; Conditions</h4>
         <p class="text-muted small mb-2">Shown to users when a match doesn't have its own specific Terms &amp; Conditions set. To set terms for a specific match (e.g. Final, Third Place), use the "📜 Terms" button next to that match in the table below.</p>
-        <p class="text-muted small mb-2">Formatting: wrap text in <code>**double asterisks**</code> for <b>bold</b>, or <code>__double underscores__</code> for <u>underline</u>.</p>
+        <p class="text-muted small mb-2">Formatting: you can type real HTML tags like <code>&lt;b&gt;bold&lt;/b&gt;</code> or <code>&lt;u&gt;underline&lt;/u&gt;</code> directly, or use shorthand <code>**bold**</code> / <code>__underline__</code>.</p>
         <textarea id="adm-terms-textarea" class="form-control mb-3" rows="8" placeholder="Loading current terms..."></textarea>
         <button class="btn btn-primary fw-bold" onclick="saveTermsAdmin()">💾 Save Default Terms &amp; Conditions</button>
       </div>
@@ -536,7 +536,7 @@
             <label class="form-check-label fw-semibold" for="adm-match-terms-required">Require players to accept Terms &amp; Conditions for this match</label>
           </div>
           <p class="text-muted small">Leave blank to fall back to the default Terms &amp; Conditions below. (Text is ignored if the toggle above is off.)</p>
-          <p class="text-muted small mb-2">Formatting: wrap text in <code>**double asterisks**</code> for <b>bold</b>, or <code>__double underscores__</code> for <u>underline</u>.</p>
+          <p class="text-muted small mb-2">Formatting: you can type real HTML tags like <code>&lt;b&gt;bold&lt;/b&gt;</code> or <code>&lt;u&gt;underline&lt;/u&gt;</code> directly, or use shorthand <code>**bold**</code> / <code>__underline__</code>.</p>
           <textarea id="adm-match-terms-textarea" class="form-control mb-3" rows="8" placeholder="Enter Terms and Conditions specific to this match..."></textarea>
           <button class="btn btn-primary fw-bold" onclick="saveMatchTermsAdmin()">💾 Save</button>
         </div>
@@ -1868,16 +1868,13 @@
       return cachedTermsText;
     }
 
-    // Converts simple admin-typed markup into safe HTML for display:
-    // **text** -> bold, __text__ -> underline, plain newlines -> line breaks.
-    // HTML is escaped first so admins can't accidentally (or a hijacked
-    // session can't maliciously) inject arbitrary markup/scripts.
+    // Renders admin-typed terms text as HTML. Admin-authored content is trusted
+    // (only reachable via the PIN-protected admin functions), so real HTML tags
+    // like <b>, <u>, <br> are allowed straight through. **text** and __text__
+    // shorthand are also supported for convenience, and plain newlines become
+    // line breaks automatically.
     function renderTermsMarkup(rawText) {
-      const escaped = rawText
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-      return escaped
+      return rawText
         .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
         .replace(/__(.+?)__/g, '<u>$1</u>')
         .replace(/\n/g, '<br>');
