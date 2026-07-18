@@ -2018,7 +2018,7 @@
     function predictedOutcomeBadge(match, t1Score, t2Score) {
       const code = outcomeCode(t1Score, t2Score);
       if (code === 'T1') return `<span class="badge bg-primary">${match.team1}</span>`;
-      if (code === 'T2') return `<span class="badge bg-primary">${match.team2}</span>`;
+      if (code === 'T2') return `<span class="badge bg-danger">${match.team2}</span>`;
       if (code === 'DRAW') return `<span class="badge bg-secondary">Draw</span>`;
       return '';
     }
@@ -2130,7 +2130,7 @@
       });
       winCountEl.innerHTML = `
         <span class="badge bg-primary p-2">No of ${match.team1} win: ${team1WinCount}</span>
-        <span class="badge bg-primary p-2">No of ${match.team2} win: ${team2WinCount}</span>`;
+        <span class="badge bg-danger p-2">No of ${match.team2} win: ${team2WinCount}</span>`;
 
       // --- Payout pool ---
       // Non-kitty match: pool = sum of fees actually paid by everyone in this match (equivalent
