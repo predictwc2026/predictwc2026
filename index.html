@@ -237,6 +237,7 @@
         <div id="summary-combinations-section" class="mb-4 p-3 border rounded d-none" style="background-color: #fafbfc;">
           <h6 class="fw-bold text-secondary mb-2">Prediction Summary Breakdown</h6>
           <div id="combination-pills-container"></div>
+          <div id="win-count-breakdown" class="d-flex flex-wrap gap-2 mt-3 pt-3 border-top"></div>
         </div>
         <div class="d-flex justify-content-between align-items-center mt-4">
           <h5 class="fw-bold mb-0">Full List</h5>
@@ -2071,6 +2072,7 @@
       const codeBox = document.getElementById('results-code-box');
 
       tbody.innerHTML = ""; pillsContainer.innerHTML = ""; summarySection.classList.add('d-none');
+      document.getElementById('win-count-breakdown').innerHTML = "";
 
       if (codeBox) codeBox.classList.toggle('d-none', isAdminAuthenticated);
 
@@ -2117,6 +2119,18 @@
       Object.keys(scoreComboMap).forEach(key => {
         pillsContainer.innerHTML += `<span class="combo-pill">${key}: ${scoreComboMap[key]} entries</span>`;
       });
+
+      // --- Win-count breakdown (excludes draws) ---
+      const winCountEl = document.getElementById('win-count-breakdown');
+      let team1WinCount = 0, team2WinCount = 0;
+      allPreds.forEach(p => {
+        const code = outcomeCode(p.team1_score, p.team2_score);
+        if (code === 'T1') team1WinCount++;
+        else if (code === 'T2') team2WinCount++;
+      });
+      winCountEl.innerHTML = `
+        <span class="badge bg-primary p-2">No of ${match.team1} win: ${team1WinCount}</span>
+        <span class="badge bg-primary p-2">No of ${match.team2} win: ${team2WinCount}</span>`;
 
       // --- Payout pool ---
       // Non-kitty match: pool = sum of fees actually paid by everyone in this match (equivalent
