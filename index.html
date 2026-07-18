@@ -242,7 +242,7 @@
           <h5 class="fw-bold mb-0">Full List</h5>
           <button id="btn-export-csv" class="btn btn-outline-success btn-sm fw-bold d-none" onclick="exportResultsCsv()">📥 Export CSV (Admin)</button>
         </div>
-        <div class="table-responsive"><table class="table table-striped align-middle"><thead><tr><th>Applicant Name</th><th>Prediction</th><th>Fee Paid</th><th>Payout (NPR)</th></tr></thead><tbody id="results-table-body"></tbody></table></div>
+        <div class="table-responsive"><table class="table table-striped align-middle"><thead><tr><th>Applicant Name</th><th>Prediction</th><th>Predicted Winner</th><th>Fee Paid</th><th>Payout (NPR)</th></tr></thead><tbody id="results-table-body"></tbody></table></div>
       </div>
     </div>
 
@@ -261,7 +261,7 @@
                 <tbody>
                   <tr><td class="fw-bold">Rank 1</td><td class="text-start">Pradip Dhamala (590 pts)</td><td class="fw-bold text-success">NPR 9,225</td></tr>
                   <tr><td class="fw-bold">Rank 2</td><td class="text-start">Ram sir (585 pts)</td><td class="fw-bold text-success">NPR 5,125</td></tr>
-                  <tr><td class="fw-bold">Rank 3</td><td class="text-start">Abhishek (580 pts); Santosh Neupane (580 pts)</td><td class="fw-bold text-success">NPR 1,537.50 each <span class="text-muted small d-block">(NPR 3,075 divided)</span></td></tr>
+                  <tr><td class="fw-bold">Rank 3</td><td class="text-start">Abhishek (580 pts); Santosh Neupane (580 pts)</td><td class="fw-bold text-success">NPR 1,537.50 each <span class="text-muted small d-block">(NPR 3,075 split 2 ways)</span></td></tr>
                   <tr><td class="fw-bold">Rank 4</td><td class="text-start">Bhasker1 (575 pts)</td><td class="fw-bold text-success">NPR 2,050</td></tr>
                   <tr><td class="fw-bold small">Lowest Point</td><td class="text-start">Bhasker3 (80 pts)</td><td class="fw-bold text-success">NPR 1,025</td></tr>
                   <tr><td class="fw-bold small">Most R16 Predictions</td><td class="text-start">Bhasker2 (13)</td><td class="fw-bold text-success">NPR 500</td></tr>
@@ -2004,6 +2004,24 @@
       renderResultsView(activeGameId, document.getElementById('verify-code-input').value);
     }
 
+    // Returns 'T1', 'T2', or 'DRAW' for a given score pair, or null if incomplete.
+    function outcomeCode(t1, t2) {
+      if (t1 === null || t2 === null || t1 === undefined || t2 === undefined) return null;
+      if (t1 > t2) return 'T1';
+      if (t2 > t1) return 'T2';
+      return 'DRAW';
+    }
+
+    // Given a match object and a predicted score, returns a small badge showing whether
+    // that prediction picks Team1 to win, Team2 to win, or a Draw.
+    function predictedOutcomeBadge(match, t1Score, t2Score) {
+      const code = outcomeCode(t1Score, t2Score);
+      if (code === 'T1') return `<span class="badge bg-primary">${match.team1}</span>`;
+      if (code === 'T2') return `<span class="badge bg-primary">${match.team2}</span>`;
+      if (code === 'DRAW') return `<span class="badge bg-secondary">Draw</span>`;
+      return '';
+    }
+
     async function renderResultsView(gId, filterCode) {
       const match = globalMatches.find(x => x.game_id === gId);
       const resultsLockedForPublic = !match.entriesFinalized;
@@ -2057,7 +2075,7 @@
       if (codeBox) codeBox.classList.toggle('d-none', isAdminAuthenticated);
 
       if (!isAdminAuthenticated && (!filterCode || filterCode.trim() === "")) {
-        tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted">🔒 Please enter your assignment code above to unlock the log.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">🔒 Please enter your assignment code above to unlock the log.</td></tr>`;
         document.getElementById('res-total').innerText = "0";
         document.getElementById('res-solo').innerText = "Locked";
         document.getElementById('res-title').innerText = `Results Log: ${match.team1} vs ${match.team2}`;
@@ -2081,7 +2099,7 @@
         });
         if (error || !data || data.length === 0) {
           alert("Invalid Secret Code: Match entries locked.");
-          tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger">⚠️ Access Denied. Invalid entry code parameters.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">⚠️ Access Denied. Invalid entry code parameters.</td></tr>`;
           return;
         }
         allPreds = data;
@@ -2114,22 +2132,39 @@
       let matchingPredictionsCount = finalScoreKey ? (scoreComboMap[finalScoreKey] || 0) : 0;
       let calculatedPayout = (finalScoreKey && matchingPredictionsCount > 0) ? (totalPayoutPool / matchingPredictionsCount) : 0;
 
+      // Fallback: if nobody predicted the exact score (kitty condition), split the pool
+      // equally among everyone who at least predicted the correct match winner/outcome.
+      let actualOutcome = finalScoreKey ? outcomeCode(match.team1_score, match.team2_score) : null;
+      let winnerPredictorCount = 0;
+      if (finalScoreKey && matchingPredictionsCount === 0 && actualOutcome) {
+        winnerPredictorCount = allPreds.filter(p => outcomeCode(p.team1_score, p.team2_score) === actualOutcome).length;
+      }
+      let calculatedWinnerSplitPayout = (winnerPredictorCount > 0) ? (totalPayoutPool / winnerPredictorCount) : 0;
+
       let soloCount = 0;
       let processedPreds = allPreds.map(p => {
         let comboKey = `${p.team1_score}-${p.team2_score}`;
         if(scoreComboMap[comboKey] === 1) soloCount++;
-        let isWinner = finalScoreKey && comboKey === finalScoreKey;
-        return { ...p, displayName: isWinner ? `🏆 ${p.full_name}` : p.full_name, payoutValue: isWinner ? calculatedPayout : 0, isWinner: isWinner };
+        let isExactWinner = finalScoreKey && comboKey === finalScoreKey;
+        let isOutcomeWinner = !isExactWinner && matchingPredictionsCount === 0 && actualOutcome && outcomeCode(p.team1_score, p.team2_score) === actualOutcome;
+        let isWinner = isExactWinner || isOutcomeWinner;
+        let payoutValue = isExactWinner ? calculatedPayout : (isOutcomeWinner ? calculatedWinnerSplitPayout : 0);
+        let displayName = isExactWinner ? `🏆 ${p.full_name}` : (isOutcomeWinner ? `🥈 ${p.full_name}` : p.full_name);
+        return { ...p, displayName, payoutValue, isWinner };
       });
 
       processedPreds.sort((a, b) => b.isWinner - a.isWinner).forEach(p => {
-        tbody.innerHTML += `<tr class="${p.isWinner ? 'winner-row' : ''}"><td class="fw-semibold">${p.displayName}</td><td><span class="badge bg-success">${p.team1_score} - ${p.team2_score}</span></td><td class="text-muted">NPR ${(Number(p.fee)||0).toFixed(2)}</td><td class="fw-bold">NPR ${p.payoutValue.toFixed(2)}</td></tr>`;
+        tbody.innerHTML += `<tr class="${p.isWinner ? 'winner-row' : ''}"><td class="fw-semibold">${p.displayName}</td><td><span class="badge bg-success">${p.team1_score} - ${p.team2_score}</span></td><td>${predictedOutcomeBadge(match, p.team1_score, p.team2_score)}</td><td class="text-muted">NPR ${(Number(p.fee)||0).toFixed(2)}</td><td class="fw-bold">NPR ${p.payoutValue.toFixed(2)}</td></tr>`;
       });
 
       if (finalScoreKey && matchingPredictionsCount === 0) {
-        // No winners this round — this is exactly the scenario that should feed the *next*
-        // kitty match's kitty_carry_amount (equal to totalPayoutPool here).
-        pillsContainer.innerHTML += `<div class="mt-2 w-100"><span class="badge bg-warning text-dark p-2">🫙 No winning predictions — full pool of NPR ${totalPayoutPool.toFixed(2)} carries over as the kitty for the next kitty match.</span></div>`;
+        if (winnerPredictorCount > 0) {
+          pillsContainer.innerHTML += `<div class="mt-2 w-100"><span class="badge bg-info text-dark p-2">🥈 No exact score match — pool of NPR ${totalPayoutPool.toFixed(2)} split equally among ${winnerPredictorCount} player(s) who correctly picked the match winner (NPR ${calculatedWinnerSplitPayout.toFixed(2)} each).</span></div>`;
+        } else {
+          // Nobody predicted the correct winner either — this is the scenario that should
+          // feed the *next* kitty match's kitty_carry_amount (equal to totalPayoutPool here).
+          pillsContainer.innerHTML += `<div class="mt-2 w-100"><span class="badge bg-warning text-dark p-2">🫙 No winning predictions — full pool of NPR ${totalPayoutPool.toFixed(2)} carries over as the kitty for the next kitty match.</span></div>`;
+        }
       }
 
       const adminPreviewSuffix = (isAdminAuthenticated && resultsLockedForPublic) ? ' (Admin Preview — entries not yet finalized, not visible to players)' : '';
@@ -2155,7 +2190,14 @@
       }
 
       const match = lastLoadedMatchMeta;
-      const headers = ['Full Name', 'Email', 'Voucher Code', 'Team1 Score', 'Team2 Score', 'Fee Paid (NPR)', 'Winner', 'Payout (NPR)', 'Submitted At (NPT)'];
+      const headers = ['Full Name', 'Email', 'Voucher Code', 'Team1 Score', 'Team2 Score', 'Predicted Outcome', 'Fee Paid (NPR)', 'Winner', 'Payout (NPR)', 'Submitted At (NPT)'];
+
+      const predictedOutcomeText = (t1, t2) => {
+        if (t1 === null || t2 === null) return '';
+        if (t1 > t2) return match.team1;
+        if (t2 > t1) return match.team2;
+        return 'Draw';
+      };
 
       const escapeCsvField = (val) => {
         const s = (val === null || val === undefined) ? '' : String(val);
@@ -2175,6 +2217,7 @@
         p.code || '',
         p.team1_score,
         p.team2_score,
+        predictedOutcomeText(p.team1_score, p.team2_score),
         (Number(p.fee) || 0).toFixed(2),
         p.isWinner ? 'Yes' : 'No',
         (Number(p.payoutValue) || 0).toFixed(2),
@@ -2294,13 +2337,24 @@
         const targetKey = `${match.team1_score}-${match.team2_score}`;
         const preds = gameDistribution[gId];
         let winningCount = preds.filter(p => `${p.team1_score}-${p.team2_score}` === targetKey).length;
+        // Same pooling rule as the per-match results view: sum of fees actually paid this
+        // match, plus any carried-over kitty amount for kitty matches.
+        const totalFeesCollected = preds.reduce((sum, p) => sum + (Number(p.fee) || 0), 0);
+        const kittyCarry = match.is_kitty ? (Number(match.kitty_carry_amount) || 0) : 0;
+        const totalPayoutPool = totalFeesCollected + kittyCarry;
+
         if (winningCount > 0) {
-          // Same pooling rule as the per-match results view: sum of fees actually paid this
-          // match, plus any carried-over kitty amount for kitty matches.
-          const totalFeesCollected = preds.reduce((sum, p) => sum + (Number(p.fee) || 0), 0);
-          const kittyCarry = match.is_kitty ? (Number(match.kitty_carry_amount) || 0) : 0;
-          const totalPayoutPool = totalFeesCollected + kittyCarry;
-          gamePayoutMap[gId] = { targetKey: targetKey, payoutPerWinner: totalPayoutPool / winningCount };
+          gamePayoutMap[gId] = { mode: 'exact', targetKey: targetKey, payoutPerWinner: totalPayoutPool / winningCount };
+        } else {
+          // Fallback: nobody predicted the exact score — split the pool equally among
+          // everyone who at least predicted the correct match winner/outcome.
+          const actualOutcome = outcomeCode(match.team1_score, match.team2_score);
+          const outcomeWinnerCount = preds.filter(p => outcomeCode(p.team1_score, p.team2_score) === actualOutcome).length;
+          if (actualOutcome && outcomeWinnerCount > 0) {
+            gamePayoutMap[gId] = { mode: 'outcome', targetOutcome: actualOutcome, payoutPerWinner: totalPayoutPool / outcomeWinnerCount };
+          }
+          // else: nobody predicted the correct winner either — pool isn't credited here;
+          // it carries forward into the next kitty match's kitty_carry_amount, as before.
         }
       });
 
@@ -2310,7 +2364,11 @@
         uniquePlayersSet.add(p.email.toLowerCase());
         if (!playerLeaderboard[p.full_name]) playerLeaderboard[p.full_name] = { name: p.full_name, wins: 0, totalPayout: 0 };
         const payoutInfo = gamePayoutMap[p.game_id];
-        if (payoutInfo && `${p.team1_score}-${p.team2_score}` === payoutInfo.targetKey) {
+        if (!payoutInfo) return;
+        const isWinner = payoutInfo.mode === 'exact'
+          ? (`${p.team1_score}-${p.team2_score}` === payoutInfo.targetKey)
+          : (outcomeCode(p.team1_score, p.team2_score) === payoutInfo.targetOutcome);
+        if (isWinner) {
           playerLeaderboard[p.full_name].wins += 1;
           playerLeaderboard[p.full_name].totalPayout += payoutInfo.payoutPerWinner;
           winningPlayersSet.add(p.full_name);
