@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FIFA World Cup Goal Predictor</title>
+
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -58,20 +59,46 @@
 </head>
 <body>
 
+  <div id="login-screen" class="d-flex align-items-center justify-content-center" style="min-height: 100vh; background-color: #3b0042;">
+    <div class="card p-4 shadow" style="width: 100%; max-width: 380px;">
+      <h4 class="fw-bold text-center mb-1">🎯 Prediction Application</h4>
+      <p class="text-muted text-center small mb-4">Please log in to continue</p>
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Username</label>
+        <input type="text" class="form-control" id="login-username" autocomplete="username">
+      </div>
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Password</label>
+        <input type="password" class="form-control" id="login-password" autocomplete="current-password" onkeydown="if(event.key==='Enter') attemptLogin();">
+      </div>
+      <div id="login-error" class="text-danger small mb-2 d-none"></div>
+      <button class="btn btn-primary fw-bold w-100" id="login-submit-btn" onclick="attemptLogin()">Log In</button>
+    </div>
+  </div>
+
+  <div id="app-shell" class="d-none">
   <nav class="navbar navbar-dark sticky-top navbar-expand-lg">
     <div class="container">
-      <a class="navbar-brand fw-bold" href="#" onclick="showPage('home')">🏆 World Cup Predictor</a>
+      <a class="navbar-brand fw-bold" href="#" onclick="showPage('landing')">🎯 Prediction Application</a>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavCollapse" aria-controls="mainNavCollapse" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
       </button>
       <div class="collapse navbar-collapse" id="mainNavCollapse">
-        <div class="navbar-nav ms-auto gap-lg-3" data-bs-toggle="collapse" data-bs-target="#mainNavCollapse">
-          <a class="nav-link text-white fw-semibold" href="#" onclick="showPage('home')">Fixtures</a>
-          <a class="nav-link text-white fw-semibold" href="#" onclick="openSchedulePage()">Full Schedule</a>
-          <a class="nav-link text-white fw-semibold" href="#" onclick="promptLeaderboardAuth()">Leaderboard</a>
-          <a class="nav-link text-white fw-semibold" href="#" onclick="openMyPredictionsPage()">My Vault</a>
-          <a class="nav-link text-white fw-semibold" href="#" onclick="triggerSheetAuth()">Tournament Results</a>
-          <a class="nav-link text-white fw-semibold" href="#" onclick="openWinnersPrediction()">Winners Prediction</a>
+        <div class="navbar-nav ms-auto gap-lg-3 align-items-lg-center">
+          <div class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle text-white fw-semibold" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Football Competition</a>
+            <ul class="dropdown-menu dropdown-menu-dark">
+              <li><a class="dropdown-item" href="#" onclick="showPage('home');" data-bs-toggle="collapse" data-bs-target="#mainNavCollapse">Fixtures</a></li>
+              <li><a class="dropdown-item" href="#" onclick="openSchedulePage()" data-bs-toggle="collapse" data-bs-target="#mainNavCollapse">Full Schedule</a></li>
+              <li><a class="dropdown-item" href="#" onclick="promptLeaderboardAuth()" data-bs-toggle="collapse" data-bs-target="#mainNavCollapse">Leaderboard</a></li>
+              <li><a class="dropdown-item" href="#" onclick="openMyPredictionsPage()" data-bs-toggle="collapse" data-bs-target="#mainNavCollapse">My Vault</a></li>
+              <li><a class="dropdown-item" href="#" onclick="triggerSheetAuth()" data-bs-toggle="collapse" data-bs-target="#mainNavCollapse">Tournament Results</a></li>
+              <li><a class="dropdown-item" href="#" onclick="openWinnersPrediction()" data-bs-toggle="collapse" data-bs-target="#mainNavCollapse">Winners Prediction</a></li>
+            </ul>
+          </div>
+          <a class="nav-link text-white fw-semibold" href="#" onclick="openCricketPage()" data-bs-toggle="collapse" data-bs-target="#mainNavCollapse">🏏 NPL Cricket</a>
+          <span class="text-white-50 small d-none d-lg-inline">👤 <span id="logged-in-user-label"></span></span>
+          <a class="nav-link text-white fw-semibold" href="#" onclick="logoutUser()" data-bs-toggle="collapse" data-bs-target="#mainNavCollapse">Log Out</a>
         </div>
       </div>
     </div>
@@ -79,7 +106,12 @@
 
   <div class="container my-4">
     
-    <div id="page-home" class="page-view">
+    <div id="page-landing" class="page-view">
+      <!-- Intentionally blank landing page for now, per requirements. Use the "Football Competition" or
+           "🏏 NPL Cricket" menus above to navigate into the app. -->
+    </div>
+
+    <div id="page-home" class="page-view d-none">
       <h2 class="mb-4 text-center text-dark fw-bold">Live Match Prediction Center</h2>
       <div class="d-flex justify-content-center gap-2 mb-4">
         <button id="btn-filter-open" class="btn btn-primary filter-btn" onclick="setMatchFilter('Open')">Open Games</button>
@@ -293,8 +325,140 @@
       </div>
     </div>
 
+    <div id="page-cricket" class="page-view d-none">
+      <button class="btn btn-secondary mb-3" onclick="showPage('landing')">← Back</button>
+
+      <div class="card p-4 mb-4">
+        <h3 class="fw-bold mb-1">🏏 <span id="npl-season-label">Nepal Premier League</span> — Predict the Full Standings</h3>
+        <p class="text-muted mb-2">Rank all 8 teams from 1st to 8th, then separately pick your 2 Finalists and the Champion. One entry per person.</p>
+        <div id="npl-status-banner" class="alert alert-info fw-semibold mb-0">Loading season info...</div>
+      </div>
+
+      <div class="card p-4 mb-4" id="npl-predict-card">
+        <h5 class="fw-bold mb-3">Submit Your Prediction</h5>
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Full Name</label>
+            <input type="text" class="form-control" id="npl-full-name" placeholder="Your full name">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Email</label>
+            <input type="email" class="form-control" id="npl-email" placeholder="you@example.com">
+          </div>
+        </div>
+
+        <h6 class="fw-bold text-secondary mb-2">Predicted League Standings (1st – 8th)</h6>
+        <div class="row g-3 mb-3">
+          <div class="col-md-3 col-6">
+            <label class="form-label small fw-semibold">🥇 1st</label>
+            <select class="form-select" id="npl-rank1"></select>
+          </div>
+          <div class="col-md-3 col-6">
+            <label class="form-label small fw-semibold">🥈 2nd</label>
+            <select class="form-select" id="npl-rank2"></select>
+          </div>
+          <div class="col-md-3 col-6">
+            <label class="form-label small fw-semibold">🥉 3rd</label>
+            <select class="form-select" id="npl-rank3"></select>
+          </div>
+          <div class="col-md-3 col-6">
+            <label class="form-label small fw-semibold">4th</label>
+            <select class="form-select" id="npl-rank4"></select>
+          </div>
+          <div class="col-md-3 col-6">
+            <label class="form-label small fw-semibold">5th</label>
+            <select class="form-select" id="npl-rank5"></select>
+          </div>
+          <div class="col-md-3 col-6">
+            <label class="form-label small fw-semibold">6th</label>
+            <select class="form-select" id="npl-rank6"></select>
+          </div>
+          <div class="col-md-3 col-6">
+            <label class="form-label small fw-semibold">7th</label>
+            <select class="form-select" id="npl-rank7"></select>
+          </div>
+          <div class="col-md-3 col-6">
+            <label class="form-label small fw-semibold">8th</label>
+            <select class="form-select" id="npl-rank8"></select>
+          </div>
+        </div>
+
+        <h6 class="fw-bold text-secondary mb-2">Finalists &amp; Champion (independent of your ranking above)</h6>
+        <div class="row g-3 mb-3">
+          <div class="col-md-4 col-6">
+            <label class="form-label small fw-semibold">Finalist 1</label>
+            <select class="form-select" id="npl-finalist1"></select>
+          </div>
+          <div class="col-md-4 col-6">
+            <label class="form-label small fw-semibold">Finalist 2</label>
+            <select class="form-select" id="npl-finalist2"></select>
+          </div>
+          <div class="col-md-4 col-12">
+            <label class="form-label small fw-semibold">🏆 Champion</label>
+            <select class="form-select" id="npl-winner"></select>
+          </div>
+        </div>
+        <p class="text-muted small">Note: your Champion pick must be one of your 2 Finalist picks.</p>
+
+        <div id="npl-submit-error" class="text-danger small mb-2 d-none"></div>
+        <button class="btn btn-primary fw-bold" id="npl-submit-btn" onclick="submitNplPrediction()">Submit Prediction (<span id="npl-fee-inline">NPR --</span>)</button>
+      </div>
+
+      <div class="card p-4 mb-4 d-none" id="npl-success-card">
+        <h5 class="fw-bold text-success mb-2">✅ Prediction Submitted!</h5>
+        <p class="mb-1">Please pay the entry fee via the QR code shown on the Fixtures page, and <b>save this code</b> — you'll need it to look up your prediction later:</p>
+        <div class="p-3 bg-light border rounded text-center fs-4 fw-bold font-monospace" id="npl-success-code"></div>
+      </div>
+
+      <div class="card p-4 mb-4">
+        <h5 class="fw-bold mb-3">🔍 View My Prediction</h5>
+        <div class="input-group mb-2">
+          <input type="text" class="form-control" id="npl-lookup-code" placeholder="Enter your code">
+          <button class="btn btn-outline-primary fw-bold" onclick="lookupMyNplPrediction()">Look Up</button>
+        </div>
+        <div id="npl-lookup-result" class="mt-3"></div>
+      </div>
+
+      <div class="card p-4">
+        <h5 class="fw-bold mb-3">📊 Leaderboard</h5>
+        <div id="npl-leaderboard-status" class="text-muted small mb-2"></div>
+        <div class="table-responsive">
+          <table class="table table-striped align-middle">
+            <thead><tr><th>#</th><th>Name</th><th>Standings Pick (1st → 8th)</th><th>Finalists / Champion</th><th>Points</th></tr></thead>
+            <tbody id="npl-leaderboard-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <div id="page-admin" class="page-view d-none">
-      <button class="btn btn-secondary mb-3" onclick="showPage('home')">← Close Dashboard Panel</button>
+      <button class="btn btn-secondary mb-3" onclick="showPage('landing')">← Close Dashboard Panel</button>
+
+      <div class="card p-4 mb-4 border-dark border">
+        <h4 class="fw-bold mb-3">👤 User Management</h4>
+        <p class="text-muted small mb-3">Create login accounts for the site's username/password gate. The "admin" account already exists.</p>
+        <div class="row g-3 mb-3">
+          <div class="col-md-4">
+            <label class="form-label small fw-semibold">New Username</label>
+            <input type="text" class="form-control" id="adm-new-username">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small fw-semibold">Password</label>
+            <input type="text" class="form-control" id="adm-new-password">
+          </div>
+          <div class="col-md-4 d-flex align-items-end">
+            <button class="btn btn-dark fw-bold w-100" onclick="createUserAdmin()">➕ Create User</button>
+          </div>
+        </div>
+        <div id="adm-user-create-msg" class="small mb-3"></div>
+        <h6 class="fw-bold text-secondary mb-2">Existing Users</h6>
+        <div class="table-responsive">
+          <table class="table table-sm table-striped align-middle">
+            <thead><tr><th>Username</th><th>Role</th><th>Created</th><th></th></tr></thead>
+            <tbody id="adm-users-table-body"></tbody>
+          </table>
+        </div>
+      </div>
 
       <div class="card p-4 mb-4 border-success border">
         <h4 class="text-success fw-bold mb-3">➕ Add New Match</h4>
@@ -388,6 +552,130 @@
           </div>
           <div id="active-voucher-pool-render" class="d-flex flex-wrap gap-2 p-2 border rounded bg-white" style="min-height: 50px;"></div>
         </div>
+      </div>
+
+      <div class="card p-4 mb-4 border-info border">
+        <h4 class="fw-bold text-info mb-3">🏏 NPL Cricket Admin</h4>
+
+        <h6 class="fw-bold text-secondary mb-2">Team Names</h6>
+        <p class="text-muted small">Edit any team name below (or fill blanks to add new teams). Renaming preserves all existing predictions tied to that team.</p>
+        <div class="row g-2 mb-3" id="npl-adm-team-name-inputs"></div>
+        <button class="btn btn-info fw-bold text-white mb-4" onclick="saveTeamNamesAdmin()">💾 Save Team Names</button>
+
+        <h6 class="fw-bold text-secondary mb-2">Season Config</h6>
+        <div class="row g-3 mb-3">
+          <div class="col-md-3 col-6">
+            <label class="form-label small fw-semibold">Entry Fee (NPR)</label>
+            <input type="number" class="form-control" id="npl-adm-fee">
+          </div>
+          <div class="col-md-5 col-6">
+            <label class="form-label small fw-semibold">Prediction Deadline</label>
+            <input type="datetime-local" class="form-control" id="npl-adm-deadline">
+          </div>
+          <div class="col-md-4 col-12">
+            <label class="form-label small fw-semibold d-block">Predictions Open?</label>
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" role="switch" id="npl-adm-is-open" style="width: 3em; height: 1.5em;">
+              <label class="form-check-label fw-semibold" for="npl-adm-is-open">Open for entries</label>
+            </div>
+          </div>
+        </div>
+        <p class="text-muted small mb-1">Points awarded per correctly ranked position (exact slot match):</p>
+        <div class="row g-3 mb-3">
+          <div class="col-md-3 col-6 col-lg-1">
+            <label class="form-label small fw-semibold">1st pts</label>
+            <input type="number" class="form-control" id="npl-adm-rank1-pts">
+          </div>
+          <div class="col-md-3 col-6 col-lg-1">
+            <label class="form-label small fw-semibold">2nd pts</label>
+            <input type="number" class="form-control" id="npl-adm-rank2-pts">
+          </div>
+          <div class="col-md-3 col-6 col-lg-1">
+            <label class="form-label small fw-semibold">3rd pts</label>
+            <input type="number" class="form-control" id="npl-adm-rank3-pts">
+          </div>
+          <div class="col-md-3 col-6 col-lg-1">
+            <label class="form-label small fw-semibold">4th pts</label>
+            <input type="number" class="form-control" id="npl-adm-rank4-pts">
+          </div>
+          <div class="col-md-3 col-6 col-lg-1">
+            <label class="form-label small fw-semibold">5th pts</label>
+            <input type="number" class="form-control" id="npl-adm-rank5-pts">
+          </div>
+          <div class="col-md-3 col-6 col-lg-1">
+            <label class="form-label small fw-semibold">6th pts</label>
+            <input type="number" class="form-control" id="npl-adm-rank6-pts">
+          </div>
+          <div class="col-md-3 col-6 col-lg-1">
+            <label class="form-label small fw-semibold">7th pts</label>
+            <input type="number" class="form-control" id="npl-adm-rank7-pts">
+          </div>
+          <div class="col-md-3 col-6 col-lg-1">
+            <label class="form-label small fw-semibold">8th pts</label>
+            <input type="number" class="form-control" id="npl-adm-rank8-pts">
+          </div>
+          <div class="col-md-3 col-6 col-lg-2">
+            <label class="form-label small fw-semibold">Finalist pts</label>
+            <input type="number" class="form-control" id="npl-adm-finalist-pts">
+          </div>
+          <div class="col-md-3 col-6 col-lg-2">
+            <label class="form-label small fw-semibold">Winner pts</label>
+            <input type="number" class="form-control" id="npl-adm-winner-pts">
+          </div>
+        </div>
+        <button class="btn btn-info fw-bold text-white mb-4" onclick="saveNplConfigAdmin()">💾 Save Season Config</button>
+
+        <h6 class="fw-bold text-secondary mb-2">Actual Results</h6>
+        <p class="text-muted small">Fill in as the season progresses — leave later fields blank until known. Leaderboard points update automatically once results are saved.</p>
+        <div class="row g-3 mb-3">
+          <div class="col-md-3 col-6">
+            <label class="form-label small fw-semibold">🥇 Actual 1st</label>
+            <select class="form-select" id="npl-adm-actual-rank1"></select>
+          </div>
+          <div class="col-md-3 col-6">
+            <label class="form-label small fw-semibold">🥈 Actual 2nd</label>
+            <select class="form-select" id="npl-adm-actual-rank2"></select>
+          </div>
+          <div class="col-md-3 col-6">
+            <label class="form-label small fw-semibold">🥉 Actual 3rd</label>
+            <select class="form-select" id="npl-adm-actual-rank3"></select>
+          </div>
+          <div class="col-md-3 col-6">
+            <label class="form-label small fw-semibold">Actual 4th</label>
+            <select class="form-select" id="npl-adm-actual-rank4"></select>
+          </div>
+          <div class="col-md-3 col-6">
+            <label class="form-label small fw-semibold">Actual 5th</label>
+            <select class="form-select" id="npl-adm-actual-rank5"></select>
+          </div>
+          <div class="col-md-3 col-6">
+            <label class="form-label small fw-semibold">Actual 6th</label>
+            <select class="form-select" id="npl-adm-actual-rank6"></select>
+          </div>
+          <div class="col-md-3 col-6">
+            <label class="form-label small fw-semibold">Actual 7th</label>
+            <select class="form-select" id="npl-adm-actual-rank7"></select>
+          </div>
+          <div class="col-md-3 col-6">
+            <label class="form-label small fw-semibold">Actual 8th</label>
+            <select class="form-select" id="npl-adm-actual-rank8"></select>
+          </div>
+        </div>
+        <div class="row g-3 mb-3">
+          <div class="col-md-4 col-6">
+            <label class="form-label small fw-semibold">Actual Finalist 1</label>
+            <select class="form-select" id="npl-adm-finalist1"></select>
+          </div>
+          <div class="col-md-4 col-6">
+            <label class="form-label small fw-semibold">Actual Finalist 2</label>
+            <select class="form-select" id="npl-adm-finalist2"></select>
+          </div>
+          <div class="col-md-4 col-12">
+            <label class="form-label small fw-semibold">🏆 Actual Champion</label>
+            <select class="form-select" id="npl-adm-winner"></select>
+          </div>
+        </div>
+        <button class="btn btn-info fw-bold text-white" onclick="saveNplResultsAdmin()">💾 Save Actual Results</button>
       </div>
 
       <div class="card p-4 mb-4">
@@ -596,6 +884,7 @@
   </div>
 
   <footer class="text-center my-5 text-muted"><small><a href="#" class="text-decoration-none text-secondary" onclick="triggerAdminAuth()">🛠️ Open Admin Panel</a></small></footer>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
@@ -656,8 +945,63 @@
     let scheduleLoaded = false;
     let scheduleFilterTab = "All";
 
+    // --- Login gate ---
+    function initLoginGate() {
+      const savedUser = sessionStorage.getItem('wc_logged_in_username');
+      if (savedUser) {
+        showAppShell(savedUser);
+      }
+    }
+
+    async function attemptLogin() {
+      const username = document.getElementById('login-username').value.trim();
+      const password = document.getElementById('login-password').value;
+      const errEl = document.getElementById('login-error');
+      errEl.classList.add('d-none');
+
+      if (!username || !password) {
+        errEl.innerText = 'Please enter both username and password.';
+        errEl.classList.remove('d-none');
+        return;
+      }
+
+      const btn = document.getElementById('login-submit-btn');
+      btn.disabled = true;
+      btn.innerText = 'Logging in...';
+
+      const { data, error } = await _supabase.rpc('verify_user_login', { p_username: username, p_password: password });
+
+      btn.disabled = false;
+      btn.innerText = 'Log In';
+
+      if (error || data !== true) {
+        errEl.innerText = 'Invalid username or password.';
+        errEl.classList.remove('d-none');
+        return;
+      }
+
+      sessionStorage.setItem('wc_logged_in_username', username);
+      showAppShell(username);
+    }
+
+    function showAppShell(username) {
+      document.getElementById('login-screen').classList.add('d-none');
+      document.getElementById('app-shell').classList.remove('d-none');
+      const label = document.getElementById('logged-in-user-label');
+      if (label) label.innerText = username;
+      showPage('landing');
+    }
+
+    function logoutUser() {
+      sessionStorage.removeItem('wc_logged_in_username');
+      document.getElementById('app-shell').classList.add('d-none');
+      document.getElementById('login-screen').classList.remove('d-none');
+      document.getElementById('login-username').value = '';
+      document.getElementById('login-password').value = '';
+    }
+
     window.onload = function() { 
-      loadMatchCenter(); 
+      initLoginGate();
       bootstrapModalInstance = new bootstrap.Modal(document.getElementById('confirmationModal'));
       adminLoginModalInstance = new bootstrap.Modal(document.getElementById('adminLoginModal'));
       sheetPasswordModalInstance = new bootstrap.Modal(document.getElementById('sheetPasswordModal'));
@@ -668,6 +1012,7 @@
     function showPage(pageId) {
       document.querySelectorAll('.page-view').forEach(el => el.classList.add('d-none'));
       document.getElementById('page-' + pageId).classList.remove('d-none');
+      if (pageId === 'home') loadMatchCenter(); // lazy-load Fixtures data whenever this page is shown, from any entry point
     }
 
     function setMatchFilter(status) {
@@ -2456,6 +2801,8 @@
         renderAdminDashboard();
         loadActiveMatchVouchers();
         loadTermsIntoAdminEditor();
+        renderNplAdminPanel();
+        loadUsersListAdmin();
         renderDashboard(); // refresh Fixtures cards so admin-only late-entry buttons/badges show up
         showPage('admin');
       } else {
@@ -2997,6 +3344,422 @@
         popup.document.getElementById('content-block').innerHTML =
           `<p class="text-danger text-center">Failed to load predictions: ${escapeHtml(err.message)}</p>`;
       }
+    }
+    // ============================================================
+    // 👤 User Management (site login accounts)
+    // ============================================================
+    async function createUserAdmin() {
+      if (!isAdminAuthenticated || !adminPinCache) {
+        alert("Your admin session has expired. Please log in again from the Admin Panel.");
+        return;
+      }
+      const msgEl = document.getElementById('adm-user-create-msg');
+      const username = document.getElementById('adm-new-username').value.trim();
+      const password = document.getElementById('adm-new-password').value;
+
+      if (!username || !password) {
+        msgEl.className = 'small mb-3 text-danger';
+        msgEl.innerText = 'Please enter both a username and password.';
+        return;
+      }
+
+      const { data, error } = await _supabase.rpc('create_user_admin', {
+        p_admin_pin: adminPinCache,
+        p_new_username: username,
+        p_new_password: password
+      });
+
+      if (error || data !== true) {
+        msgEl.className = 'small mb-3 text-danger';
+        msgEl.innerText = '❌ ' + (error ? error.message : 'Failed to create user.');
+        return;
+      }
+
+      msgEl.className = 'small mb-3 text-success';
+      msgEl.innerText = `✅ User "${username}" created.`;
+      document.getElementById('adm-new-username').value = '';
+      document.getElementById('adm-new-password').value = '';
+      loadUsersListAdmin();
+    }
+
+    async function loadUsersListAdmin() {
+      if (!isAdminAuthenticated || !adminPinCache) return;
+      const { data, error } = await _supabase.rpc('list_users_admin', { p_admin_pin: adminPinCache });
+      const tbody = document.getElementById('adm-users-table-body');
+      if (error || !data) { tbody.innerHTML = '<tr><td colspan="4" class="text-danger">Failed to load users.</td></tr>'; return; }
+
+      tbody.innerHTML = data.map(u => `
+        <tr>
+          <td class="fw-semibold">${u.username}</td>
+          <td>${u.role}</td>
+          <td class="text-muted small">${new Date(u.created_at).toLocaleDateString()}</td>
+          <td>${u.username !== 'admin' ? `<button class="btn btn-outline-danger btn-sm" onclick="deleteUserAdmin('${u.username}')">🗑️ Delete</button>` : ''}</td>
+        </tr>`).join('');
+    }
+
+    async function deleteUserAdmin(username) {
+      if (!isAdminAuthenticated || !adminPinCache) {
+        alert("Your admin session has expired. Please log in again from the Admin Panel.");
+        return;
+      }
+      if (!confirm(`Delete user "${username}"? They will no longer be able to log in.`)) return;
+
+      const { data, error } = await _supabase.rpc('delete_user_admin', { p_admin_pin: adminPinCache, p_username: username });
+      if (error || data !== true) {
+        alert('❌ Failed to delete: ' + (error ? error.message : 'Unknown error.'));
+        return;
+      }
+      loadUsersListAdmin();
+    }
+
+    // ============================================================
+    // 🏏 NPL Cricket Module (fully separate from football matches/predictions)
+    // ============================================================
+    const NPL_RANK_COUNT = 8;
+    let nplTeams = [];        // [{id, name}]
+    let nplConfig = null;     // {id, season_label, fee, deadline, rank1_points...rank8_points, finalist_points, winner_points, is_open}
+    let nplActualResults = null; // {actual_rank1_team_id...actual_rank8_team_id, actual_finalist1_team_id, actual_finalist2_team_id, actual_winner_team_id}
+    let nplPredictions = [];  // all rows from npl_predictions
+
+    async function loadCricketModule() {
+      const [{ data: teams }, { data: configRows }, { data: resultsRows }, { data: predRows }] = await Promise.all([
+        _supabase.from('cricket_teams').select('*').order('id'),
+        _supabase.from('npl_config').select('*').limit(1),
+        _supabase.from('npl_actual_results').select('*').limit(1),
+        _supabase.from('npl_predictions').select('*')
+      ]);
+      nplTeams = teams || [];
+      nplConfig = (configRows && configRows[0]) || null;
+      nplActualResults = (resultsRows && resultsRows[0]) || null;
+      nplPredictions = predRows || [];
+    }
+
+    function nplTeamName(teamId) {
+      const t = nplTeams.find(x => x.id === teamId);
+      return t ? t.name : '—';
+    }
+
+    function populateNplTeamDropdown(selectEl) {
+      selectEl.innerHTML = nplTeams.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+    }
+
+    function populateNplTeamDropdownWithBlank(selectEl) {
+      selectEl.innerHTML = '<option value="">-- Not yet known --</option>' + nplTeams.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+    }
+
+    async function openCricketPage() {
+      showPage('cricket');
+      await loadCricketModule();
+      renderCricketPredictPage();
+      renderNplLeaderboard();
+    }
+
+    function renderCricketPredictPage() {
+      document.getElementById('npl-season-label').innerText = nplConfig ? nplConfig.season_label : 'Nepal Premier League';
+      for (let i = 1; i <= NPL_RANK_COUNT; i++) populateNplTeamDropdown(document.getElementById(`npl-rank${i}`));
+      populateNplTeamDropdown(document.getElementById('npl-finalist1'));
+      populateNplTeamDropdown(document.getElementById('npl-finalist2'));
+      populateNplTeamDropdown(document.getElementById('npl-winner'));
+
+      const banner = document.getElementById('npl-status-banner');
+      const predictCard = document.getElementById('npl-predict-card');
+      if (!nplConfig) {
+        banner.className = 'alert alert-warning fw-semibold mb-0';
+        banner.innerText = 'Season config not set up yet. Please check back soon.';
+        predictCard.classList.add('d-none');
+        return;
+      }
+
+      document.getElementById('npl-fee-inline').innerText = `NPR ${nplConfig.fee}`;
+      const deadlineText = nplConfig.deadline ? new Date(nplConfig.deadline).toLocaleString('en-US', { timeZone: 'Asia/Kathmandu', dateStyle: 'medium', timeStyle: 'short' }) + ' (NPT)' : 'Not set';
+      const deadlinePassed = nplConfig.deadline && new Date(nplConfig.deadline).getTime() < Date.now();
+      const isOpen = nplConfig.is_open && !deadlinePassed;
+
+      if (isOpen) {
+        banner.className = 'alert alert-info fw-semibold mb-0';
+        banner.innerHTML = `Entry Fee: <b>NPR ${nplConfig.fee}</b> &nbsp;|&nbsp; Deadline: <b>${deadlineText}</b>`;
+        predictCard.classList.remove('d-none');
+      } else {
+        banner.className = 'alert alert-secondary fw-semibold mb-0';
+        banner.innerHTML = `🔒 Predictions are closed. ${deadlinePassed ? `Deadline was ${deadlineText}.` : ''}`;
+        predictCard.classList.add('d-none');
+      }
+    }
+
+    function generateNplCode() {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+      let code = '';
+      for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)];
+      return code;
+    }
+
+    async function submitNplPrediction() {
+      const errEl = document.getElementById('npl-submit-error');
+      errEl.classList.add('d-none');
+
+      const fullName = document.getElementById('npl-full-name').value.trim();
+      const email = document.getElementById('npl-email').value.trim();
+      const ranks = [];
+      for (let i = 1; i <= NPL_RANK_COUNT; i++) ranks.push(document.getElementById(`npl-rank${i}`).value);
+      const finalist1 = document.getElementById('npl-finalist1').value;
+      const finalist2 = document.getElementById('npl-finalist2').value;
+      const winner = document.getElementById('npl-winner').value;
+
+      if (!fullName || !email) {
+        errEl.innerText = 'Please enter your full name and email.';
+        errEl.classList.remove('d-none');
+        return;
+      }
+      if (new Set(ranks).size !== NPL_RANK_COUNT) {
+        errEl.innerText = 'Please pick 8 different teams across your standings ranking — no repeats.';
+        errEl.classList.remove('d-none');
+        return;
+      }
+      if (finalist1 === finalist2) {
+        errEl.innerText = 'Your two Finalist picks must be different teams.';
+        errEl.classList.remove('d-none');
+        return;
+      }
+      if (winner !== finalist1 && winner !== finalist2) {
+        errEl.innerText = 'Your Champion pick must be one of your 2 Finalist picks.';
+        errEl.classList.remove('d-none');
+        return;
+      }
+      if (!nplConfig || !nplConfig.is_open) {
+        errEl.innerText = 'Predictions are currently closed.';
+        errEl.classList.remove('d-none');
+        return;
+      }
+
+      const submitBtn = document.getElementById('npl-submit-btn');
+      submitBtn.disabled = true;
+      submitBtn.innerText = 'Submitting...';
+
+      const code = generateNplCode();
+      const insertPayload = {
+        full_name: fullName,
+        email: email,
+        code: code,
+        fee: nplConfig.fee,
+        pred_finalist1_team_id: Number(finalist1),
+        pred_finalist2_team_id: Number(finalist2),
+        pred_winner_team_id: Number(winner)
+      };
+      ranks.forEach((teamId, idx) => { insertPayload[`rank${idx + 1}_team_id`] = Number(teamId); });
+
+      const { error } = await _supabase.from('npl_predictions').insert(insertPayload);
+
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = `Submit Prediction (<span id="npl-fee-inline">NPR ${nplConfig.fee}</span>)`;
+
+      if (error) {
+        errEl.innerText = '❌ Submission failed: ' + error.message;
+        errEl.classList.remove('d-none');
+        return;
+      }
+
+      document.getElementById('npl-predict-card').classList.add('d-none');
+      document.getElementById('npl-success-card').classList.remove('d-none');
+      document.getElementById('npl-success-code').innerText = code;
+
+      await loadCricketModule();
+      renderNplLeaderboard();
+    }
+
+    // Returns { total, breakdown: [{label, points}] } for one prediction row, given the
+    // current actual results and points config. Matches the confirmed scoring rule:
+    // rank points (exact slot match, all 8 positions) + finalist bonus (per correct
+    // finalist pick) + winner bonus, ALL STACKING — Finalist/Winner are independent
+    // picks from the standings ranking, not derived from it.
+    function computeNplScore(pred, results, config) {
+      if (!results || !config) return { total: 0, breakdown: [] };
+      const breakdown = [];
+      let total = 0;
+
+      for (let i = 1; i <= NPL_RANK_COUNT; i++) {
+        const predTeam = pred[`rank${i}_team_id`];
+        const actualTeam = results[`actual_rank${i}_team_id`];
+        const pts = config[`rank${i}_points`];
+        if (actualTeam && predTeam === actualTeam) {
+          total += Number(pts);
+          breakdown.push({ label: `Position ${i} correct (${nplTeamName(predTeam)})`, points: Number(pts) });
+        }
+      }
+
+      const actualFinalists = [results.actual_finalist1_team_id, results.actual_finalist2_team_id].filter(Boolean);
+      [pred.pred_finalist1_team_id, pred.pred_finalist2_team_id].forEach(teamId => {
+        if (teamId && actualFinalists.includes(teamId)) {
+          total += Number(config.finalist_points);
+          breakdown.push({ label: `${nplTeamName(teamId)} reached the Final`, points: Number(config.finalist_points) });
+        }
+      });
+
+      if (results.actual_winner_team_id && pred.pred_winner_team_id === results.actual_winner_team_id) {
+        total += Number(config.winner_points);
+        breakdown.push({ label: `${nplTeamName(pred.pred_winner_team_id)} won the tournament`, points: Number(config.winner_points) });
+      }
+
+      return { total, breakdown };
+    }
+
+    function nplPickSummary(pred) {
+      const ranks = [];
+      for (let i = 1; i <= NPL_RANK_COUNT; i++) ranks.push(nplTeamName(pred[`rank${i}_team_id`]));
+      return ranks.join(' → ');
+    }
+
+    function renderNplLeaderboard() {
+      const tbody = document.getElementById('npl-leaderboard-body');
+      const statusEl = document.getElementById('npl-leaderboard-status');
+      if (!nplConfig) { tbody.innerHTML = ''; return; }
+
+      const resultsIn = nplActualResults && (nplActualResults.actual_rank1_team_id || nplActualResults.actual_winner_team_id);
+      statusEl.innerText = resultsIn ? 'Points update live as results are entered.' : 'Results not entered yet — points will appear once the season concludes (or partially, as results come in).';
+
+      const scored = nplPredictions.map(p => ({ ...p, scoreInfo: computeNplScore(p, nplActualResults, nplConfig) }));
+      scored.sort((a, b) => b.scoreInfo.total - a.scoreInfo.total);
+
+      tbody.innerHTML = scored.map((p, idx) => `
+        <tr>
+          <td class="fw-bold">${idx + 1}</td>
+          <td>${p.full_name}</td>
+          <td class="small">${nplPickSummary(p)}</td>
+          <td class="small">F: ${nplTeamName(p.pred_finalist1_team_id)} &amp; ${nplTeamName(p.pred_finalist2_team_id)} &nbsp;|&nbsp; 🏆 ${nplTeamName(p.pred_winner_team_id)}</td>
+          <td class="fw-bold">${p.scoreInfo.total}</td>
+        </tr>`).join('');
+    }
+
+    async function lookupMyNplPrediction() {
+      const code = document.getElementById('npl-lookup-code').value.trim();
+      const resultEl = document.getElementById('npl-lookup-result');
+      if (!code) { resultEl.innerHTML = ''; return; }
+
+      if (!nplPredictions.length) await loadCricketModule();
+      const pred = nplPredictions.find(p => p.code === code);
+      if (!pred) {
+        resultEl.innerHTML = `<div class="alert alert-danger">No prediction found for that code.</div>`;
+        return;
+      }
+      const scoreInfo = computeNplScore(pred, nplActualResults, nplConfig);
+      resultEl.innerHTML = `
+        <div class="alert alert-light border">
+          <div class="fw-bold mb-2">${pred.full_name}'s Prediction</div>
+          <div class="mb-1 small"><b>Standings:</b> ${nplPickSummary(pred)}</div>
+          <div class="mb-2 small"><b>Finalists:</b> ${nplTeamName(pred.pred_finalist1_team_id)} &amp; ${nplTeamName(pred.pred_finalist2_team_id)} &nbsp;|&nbsp; <b>Champion:</b> 🏆 ${nplTeamName(pred.pred_winner_team_id)}</div>
+          <div class="fw-bold">Total Points: ${scoreInfo.total}</div>
+          ${scoreInfo.breakdown.length ? '<ul class="small mb-0 mt-2">' + scoreInfo.breakdown.map(b => `<li>${b.label}: +${b.points}</li>`).join('') + '</ul>' : ''}
+        </div>`;
+    }
+
+    // --- Admin: NPL team names, config, and results ---
+    async function renderNplAdminPanel() {
+      await loadCricketModule();
+
+      // Team name editor: one input per existing team, plus 1 blank slot if fewer than 8 exist yet
+      const teamInputsContainer = document.getElementById('npl-adm-team-name-inputs');
+      const slotCount = Math.max(nplTeams.length, NPL_RANK_COUNT);
+      let teamInputsHtml = '';
+      for (let i = 0; i < slotCount; i++) {
+        const existingName = nplTeams[i] ? nplTeams[i].name : '';
+        teamInputsHtml += `<div class="col-md-3 col-6"><input type="text" class="form-control form-control-sm npl-adm-team-name-input" value="${existingName.replace(/"/g, '&quot;')}" placeholder="Team ${i + 1} name"></div>`;
+      }
+      teamInputsContainer.innerHTML = teamInputsHtml;
+
+      if (nplConfig) {
+        document.getElementById('npl-adm-fee').value = nplConfig.fee;
+        document.getElementById('npl-adm-deadline').value = nplConfig.deadline ? new Date(nplConfig.deadline).toISOString().slice(0, 16) : '';
+        document.getElementById('npl-adm-is-open').checked = !!nplConfig.is_open;
+        for (let i = 1; i <= NPL_RANK_COUNT; i++) {
+          document.getElementById(`npl-adm-rank${i}-pts`).value = nplConfig[`rank${i}_points`];
+        }
+        document.getElementById('npl-adm-finalist-pts').value = nplConfig.finalist_points;
+        document.getElementById('npl-adm-winner-pts').value = nplConfig.winner_points;
+      }
+
+      const resultDropdownIds = [];
+      for (let i = 1; i <= NPL_RANK_COUNT; i++) resultDropdownIds.push(`npl-adm-actual-rank${i}`);
+      resultDropdownIds.push('npl-adm-finalist1', 'npl-adm-finalist2', 'npl-adm-winner');
+      resultDropdownIds.forEach(id => populateNplTeamDropdownWithBlank(document.getElementById(id)));
+
+      if (nplActualResults) {
+        for (let i = 1; i <= NPL_RANK_COUNT; i++) {
+          document.getElementById(`npl-adm-actual-rank${i}`).value = nplActualResults[`actual_rank${i}_team_id`] || '';
+        }
+        document.getElementById('npl-adm-finalist1').value = nplActualResults.actual_finalist1_team_id || '';
+        document.getElementById('npl-adm-finalist2').value = nplActualResults.actual_finalist2_team_id || '';
+        document.getElementById('npl-adm-winner').value = nplActualResults.actual_winner_team_id || '';
+      }
+    }
+
+    async function saveTeamNamesAdmin() {
+      if (!isAdminAuthenticated || !adminPinCache) {
+        alert("Your admin session has expired. Please log in again from the Admin Panel.");
+        return;
+      }
+      const names = Array.from(document.querySelectorAll('.npl-adm-team-name-input')).map(el => el.value.trim()).filter(Boolean);
+      if (names.length < NPL_RANK_COUNT) {
+        alert(`Please fill in all ${NPL_RANK_COUNT} team names before saving.`);
+        return;
+      }
+      const { data, error } = await _supabase.rpc('set_cricket_teams_admin', { p_admin_pin: adminPinCache, p_team_names: names });
+      if (error || data !== true) {
+        alert("❌ Failed to save: " + (error ? error.message : "Unauthorized."));
+        return;
+      }
+      alert("✅ Team names saved.");
+      await renderNplAdminPanel();
+      renderCricketPredictPage();
+    }
+
+    async function saveNplConfigAdmin() {
+      if (!isAdminAuthenticated || !adminPinCache) {
+        alert("Your admin session has expired. Please log in again from the Admin Panel.");
+        return;
+      }
+      const deadlineVal = document.getElementById('npl-adm-deadline').value;
+      const rpcArgs = {
+        p_admin_pin: adminPinCache,
+        p_fee: Number(document.getElementById('npl-adm-fee').value),
+        p_deadline: deadlineVal ? new Date(deadlineVal).toISOString() : null,
+        p_finalist: Number(document.getElementById('npl-adm-finalist-pts').value),
+        p_winner: Number(document.getElementById('npl-adm-winner-pts').value),
+        p_is_open: document.getElementById('npl-adm-is-open').checked
+      };
+      for (let i = 1; i <= NPL_RANK_COUNT; i++) {
+        rpcArgs[`p_rank${i}`] = Number(document.getElementById(`npl-adm-rank${i}-pts`).value);
+      }
+      const { data, error } = await _supabase.rpc('update_npl_config_admin', rpcArgs);
+      if (error || data !== true) {
+        alert("❌ Failed to save: " + (error ? error.message : "Unauthorized."));
+        return;
+      }
+      alert("✅ NPL season config saved.");
+      await loadCricketModule();
+    }
+
+    async function saveNplResultsAdmin() {
+      if (!isAdminAuthenticated || !adminPinCache) {
+        alert("Your admin session has expired. Please log in again from the Admin Panel.");
+        return;
+      }
+      const val = (id) => { const v = document.getElementById(id).value; return v ? Number(v) : null; };
+      const rpcArgs = {
+        p_admin_pin: adminPinCache,
+        p_finalist1_team_id: val('npl-adm-finalist1'),
+        p_finalist2_team_id: val('npl-adm-finalist2'),
+        p_winner_team_id: val('npl-adm-winner')
+      };
+      for (let i = 1; i <= NPL_RANK_COUNT; i++) {
+        rpcArgs[`p_rank${i}_team_id`] = val(`npl-adm-actual-rank${i}`);
+      }
+      const { data, error } = await _supabase.rpc('update_npl_results_admin', rpcArgs);
+      if (error || data !== true) {
+        alert("❌ Failed to save: " + (error ? error.message : "Unauthorized."));
+        return;
+      }
+      alert("✅ NPL actual results saved. Leaderboard points updated.");
+      await loadCricketModule();
+      renderNplLeaderboard();
     }
   </script>
 </body>
