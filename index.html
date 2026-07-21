@@ -413,6 +413,7 @@
 
         <div id="npl-submit-error" class="text-danger small mb-2 d-none"></div>
         <button class="btn btn-primary fw-bold" id="npl-submit-btn" onclick="submitNplPrediction()">Submit Prediction (<span id="npl-fee-inline">NPR --</span>)</button>
+        <button class="btn btn-outline-secondary fw-bold d-none" id="npl-cancel-edit-btn" onclick="cancelEditNplPrediction()">Cancel Edit</button>
       </div>
 
       <div class="card p-4 mb-4 d-none" id="npl-success-card">
@@ -424,8 +425,15 @@
         <div id="npl-my-predictions-list"></div>
       </div>
 
+      <div class="card p-4 text-center">
+        <button class="btn btn-outline-primary fw-bold" onclick="openCricketLeaderboardPage()">📊 View Leaderboard</button>
+      </div>
+    </div>
+
+    <div id="page-cricket-leaderboard" class="page-view d-none">
+      <button class="btn btn-secondary mb-3" onclick="showPage('cricket')">← Back to Predictions</button>
       <div class="card p-4">
-        <h5 class="fw-bold mb-3">📊 Leaderboard</h5>
+        <h5 class="fw-bold mb-3">📊 NPL Leaderboard</h5>
         <div id="npl-leaderboard-status" class="text-muted small mb-2"></div>
         <div class="table-responsive">
           <table class="table table-striped align-middle">
@@ -471,7 +479,7 @@
           </div>
           <div class="col-md-3 col-6">
             <label class="form-label small fw-semibold">Email</label>
-            <input type="email" class="form-control" id="adm-new-email">
+            <input type="email" class="form-control" id="adm-new-email" placeholder="name@gmail.com">
           </div>
         </div>
         <div class="row g-3 mb-3">
@@ -3522,6 +3530,11 @@
         msgEl.innerText = 'Please fill in username, password, full name, and email.';
         return;
       }
+      if (!email.toLowerCase().endsWith('@gmail.com')) {
+        msgEl.className = 'small mb-3 text-danger';
+        msgEl.innerText = 'Only @gmail.com email addresses are allowed.';
+        return;
+      }
       if (!maxPredictions || maxPredictions < 1) {
         msgEl.className = 'small mb-3 text-danger';
         msgEl.innerText = 'Max predictions must be at least 1.';
@@ -3677,8 +3690,13 @@
       await loadCricketModule();
       await loadMyNplProfile();
       renderCricketPredictPage();
-      renderNplLeaderboard();
       renderMyNplPredictions();
+    }
+
+    async function openCricketLeaderboardPage() {
+      showPage('cricket-leaderboard');
+      await loadCricketModule();
+      renderNplLeaderboard();
     }
 
     async function loadMyNplProfile() {
@@ -3759,7 +3777,13 @@
     }
 
     function renderCricketPredictPage() {
+      nplEditingPredictionId = null; // any fresh render represents the default "create new" state
       document.getElementById('npl-season-label').innerText = nplConfig ? nplConfig.season_label : 'Nepal Premier League';
+
+      // Reset the submit button back to its default "create new" markup (restores the
+      // npl-fee-inline span, which edit-mode replaces) before anything below references it.
+      document.getElementById('npl-submit-btn').innerHTML = 'Submit Prediction (<span id="npl-fee-inline">NPR --</span>)';
+      document.getElementById('npl-cancel-edit-btn').classList.add('d-none');
 
       // Full team lists to start; exclusivity handlers narrow them down as picks are made
       const rankIds = nplRankSelectIds();
@@ -3818,6 +3842,42 @@
       predictCard.classList.remove('d-none');
     }
 
+    let nplEditingPredictionId = null; // null = creating a new entry; set = editing this existing one
+
+    function startEditNplPrediction(predictionId) {
+      const pred = nplPredictions.find(p => p.id === predictionId);
+      if (!pred || !currentUserProfile || pred.username !== currentUserProfile.username) return;
+
+      nplEditingPredictionId = predictionId;
+
+      // Populate the standings dropdowns with the existing pick, refreshing exclusivity as we go
+      for (let i = 1; i <= NPL_RANK_COUNT; i++) {
+        document.getElementById(`npl-rank${i}`).value = String(pred[`rank${i}_team_id`]);
+      }
+      refreshExclusiveDropdownGroup(nplRankSelectIds());
+      refreshNplFinalistOptions(); // repopulates finalist1/2 options from the Top 4 above
+
+      document.getElementById('npl-finalist1').value = String(pred.pred_finalist1_team_id);
+      refreshNplFinalistOptions(); // re-run so finalist2's excluded-option logic accounts for finalist1
+      document.getElementById('npl-finalist2').value = String(pred.pred_finalist2_team_id);
+      refreshNplFinalistOptions();
+      document.getElementById('npl-winner').value = String(pred.pred_winner_team_id);
+
+      document.getElementById('npl-predict-card').classList.remove('d-none');
+      document.getElementById('npl-success-card').classList.add('d-none');
+      const submitBtn = document.getElementById('npl-submit-btn');
+      submitBtn.innerHTML = '💾 Update Prediction';
+      document.getElementById('npl-cancel-edit-btn').classList.remove('d-none');
+
+      document.getElementById('npl-predict-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function cancelEditNplPrediction() {
+      nplEditingPredictionId = null;
+      document.getElementById('npl-cancel-edit-btn').classList.add('d-none');
+      renderCricketPredictPage(); // resets the form + submit button back to "create new" mode
+    }
+
     async function submitNplPrediction() {
       const errEl = document.getElementById('npl-submit-error');
       errEl.classList.add('d-none');
@@ -3870,7 +3930,7 @@
         errEl.classList.remove('d-none');
         return;
       }
-      if (nplMyProfile.predictions_used >= nplMyProfile.max_predictions) {
+      if (!nplEditingPredictionId && nplMyProfile.predictions_used >= nplMyProfile.max_predictions) {
         errEl.innerText = 'You have used all of your allowed predictions.';
         errEl.classList.remove('d-none');
         return;
@@ -3878,37 +3938,56 @@
 
       const submitBtn = document.getElementById('npl-submit-btn');
       submitBtn.disabled = true;
-      submitBtn.innerText = 'Submitting...';
+      submitBtn.innerText = nplEditingPredictionId ? 'Updating...' : 'Submitting...';
 
-      const insertPayload = {
-        full_name: nplMyProfile.full_name,
-        email: nplMyProfile.email,
-        username: nplMyProfile.username,
-        code: generateNplCode(), // kept internally for row uniqueness; not shown to the user anymore
-        fee: nplConfig.fee,
-        pred_finalist1_team_id: Number(finalist1),
-        pred_finalist2_team_id: Number(finalist2),
-        pred_winner_team_id: Number(winner)
-      };
-      ranks.forEach((teamId, idx) => { insertPayload[`rank${idx + 1}_team_id`] = Number(teamId); });
+      let opError = null;
 
-      const { error } = await _supabase.from('npl_predictions').insert(insertPayload);
+      if (nplEditingPredictionId) {
+        const { error } = await _supabase.rpc('update_own_npl_prediction', {
+          p_username: nplMyProfile.username,
+          p_prediction_id: nplEditingPredictionId,
+          p_rank1: Number(ranks[0]), p_rank2: Number(ranks[1]), p_rank3: Number(ranks[2]), p_rank4: Number(ranks[3]),
+          p_rank5: Number(ranks[4]), p_rank6: Number(ranks[5]), p_rank7: Number(ranks[6]), p_rank8: Number(ranks[7]),
+          p_finalist1: Number(finalist1), p_finalist2: Number(finalist2), p_winner: Number(winner)
+        });
+        opError = error;
+      } else {
+        const insertPayload = {
+          full_name: nplMyProfile.full_name,
+          email: nplMyProfile.email,
+          username: nplMyProfile.username,
+          code: generateNplCode(), // kept internally for row uniqueness; not shown to the user anymore
+          fee: nplConfig.fee,
+          pred_finalist1_team_id: Number(finalist1),
+          pred_finalist2_team_id: Number(finalist2),
+          pred_winner_team_id: Number(winner)
+        };
+        ranks.forEach((teamId, idx) => { insertPayload[`rank${idx + 1}_team_id`] = Number(teamId); });
+        const { error } = await _supabase.from('npl_predictions').insert(insertPayload);
+        opError = error;
+      }
+
+      const wasEditing = !!nplEditingPredictionId;
 
       submitBtn.disabled = false;
-      submitBtn.innerHTML = `Submit Prediction (<span id="npl-fee-inline">NPR ${nplConfig.fee}</span>)`;
+      submitBtn.innerHTML = wasEditing ? '💾 Update Prediction' : `Submit Prediction (<span id="npl-fee-inline">NPR ${nplConfig.fee}</span>)`;
 
-      if (error) {
-        errEl.innerText = '❌ Submission failed: ' + error.message;
+      if (opError) {
+        errEl.innerText = '❌ ' + (wasEditing ? 'Update failed: ' : 'Submission failed: ') + opError.message;
         errEl.classList.remove('d-none');
         return;
       }
 
-      document.getElementById('npl-success-card').classList.remove('d-none');
+      if (wasEditing) {
+        nplEditingPredictionId = null;
+        document.getElementById('npl-cancel-edit-btn').classList.add('d-none');
+      } else {
+        document.getElementById('npl-success-card').classList.remove('d-none');
+      }
 
       await loadCricketModule();
       await loadMyNplProfile();
       renderCricketPredictPage();
-      renderNplLeaderboard();
       renderMyNplPredictions();
     }
 
@@ -3982,6 +4061,12 @@
         </tr>`).join('');
     }
 
+    function nplIsEditingLocked() {
+      if (!nplConfig) return true;
+      const deadlinePassed = nplConfig.deadline && new Date(nplConfig.deadline).getTime() < Date.now();
+      return !nplConfig.is_open || deadlinePassed;
+    }
+
     function renderMyNplPredictions() {
       const card = document.getElementById('npl-my-predictions-card');
       const listEl = document.getElementById('npl-my-predictions-list');
@@ -3990,18 +4075,25 @@
       const mine = nplPredictions.filter(p => p.username === currentUserProfile.username);
       if (!mine.length) { card.classList.add('d-none'); return; }
 
+      const editingLocked = nplIsEditingLocked();
       card.classList.remove('d-none');
       listEl.innerHTML = mine.map((pred, idx) => {
         const scoreInfo = computeNplScore(pred, nplActualResults, nplConfig);
         return `
           <div class="alert alert-light border mb-2">
-            <div class="fw-bold mb-1">Prediction #${idx + 1}</div>
+            <div class="d-flex justify-content-between align-items-start">
+              <div class="fw-bold mb-1">Prediction #${idx + 1}</div>
+              ${editingLocked ? '' : `<button class="btn btn-outline-primary btn-sm" onclick="startEditNplPrediction(${pred.id})">✏️ Edit</button>`}
+            </div>
             <div class="mb-1 small"><b>Standings:</b> ${nplPickSummary(pred)}</div>
             <div class="mb-2 small"><b>Finalists:</b> ${nplTeamName(pred.pred_finalist1_team_id)} &amp; ${nplTeamName(pred.pred_finalist2_team_id)} &nbsp;|&nbsp; <b>Champion:</b> 🏆 ${nplTeamName(pred.pred_winner_team_id)}</div>
             <div class="fw-bold">Total Points: ${scoreInfo.total}</div>
             ${scoreInfo.breakdown.length ? '<ul class="small mb-0 mt-2">' + scoreInfo.breakdown.map(b => `<li>${b.label}: +${b.points}</li>`).join('') + '</ul>' : ''}
           </div>`;
       }).join('');
+      if (editingLocked && mine.length) {
+        listEl.innerHTML += `<div class="text-muted small">🔒 Editing is locked — the prediction deadline has passed.</div>`;
+      }
     }
 
     // --- Admin: NPL team names, config, and results ---
