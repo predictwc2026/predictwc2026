@@ -630,7 +630,7 @@
             <input type="number" class="form-control" id="npl-adm-fee">
           </div>
           <div class="col-md-5 col-6">
-            <label class="form-label small fw-semibold">Prediction Deadline</label>
+            <label class="form-label small fw-semibold">Prediction Deadline (NPT)</label>
             <input type="datetime-local" class="form-control" id="npl-adm-deadline">
           </div>
           <div class="col-md-4 col-12">
@@ -1592,6 +1592,23 @@
     // (this automatically accounts for each region's own DST rules). We then convert that to
     // Nepal Time (UTC+5:45, fixed, no DST).
     const NPT_UTC_OFFSET_MIN = 5 * 60 + 45; // Nepal Time (UTC+5:45)
+
+    // Converts a <input type="datetime-local"> value (interpreted as NPT wall-clock time,
+    // regardless of the browser's own timezone) into a proper UTC ISO string for storage.
+    function nptLocalInputToUtcIso(localValue) {
+      if (!localValue) return null;
+      return new Date(`${localValue}:00+05:45`).toISOString();
+    }
+
+    // Converts a stored UTC ISO string back into the value a datetime-local input needs,
+    // displaying it as NPT wall-clock time (not the browser's local timezone).
+    function utcIsoToNptLocalInput(isoString) {
+      if (!isoString) return '';
+      const nptMs = new Date(isoString).getTime() + NPT_UTC_OFFSET_MIN * 60000;
+      const d = new Date(nptMs);
+      const pad = n => String(n).padStart(2, '0');
+      return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+    }
 
     function getVenueTimeZoneByCity(stadium) {
       const city = ((stadium && stadium.city_en) || '').toLowerCase();
@@ -4003,7 +4020,7 @@
 
       if (nplConfig) {
         document.getElementById('npl-adm-fee').value = nplConfig.fee;
-        document.getElementById('npl-adm-deadline').value = nplConfig.deadline ? new Date(nplConfig.deadline).toISOString().slice(0, 16) : '';
+        document.getElementById('npl-adm-deadline').value = utcIsoToNptLocalInput(nplConfig.deadline);
         document.getElementById('npl-adm-is-open').checked = !!nplConfig.is_open;
         for (let i = 1; i <= NPL_RANK_COUNT; i++) {
           document.getElementById(`npl-adm-rank${i}-pts`).value = nplConfig[`rank${i}_points`];
@@ -4056,7 +4073,7 @@
       const rpcArgs = {
         p_admin_pin: adminPinCache,
         p_fee: Number(document.getElementById('npl-adm-fee').value),
-        p_deadline: deadlineVal ? new Date(deadlineVal).toISOString() : null,
+        p_deadline: nptLocalInputToUtcIso(deadlineVal),
         p_finalist: Number(document.getElementById('npl-adm-finalist-pts').value),
         p_winner: Number(document.getElementById('npl-adm-winner-pts').value),
         p_is_open: document.getElementById('npl-adm-is-open').checked
