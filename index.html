@@ -437,6 +437,20 @@
     <div id="page-admin" class="page-view d-none">
       <button class="btn btn-secondary mb-3" onclick="showPage('landing')">← Close Dashboard Panel</button>
 
+      <ul class="nav nav-tabs mb-4" id="admin-section-tabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#admin-tab-users" type="button">👤 User Management</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" data-bs-toggle="tab" data-bs-target="#admin-tab-football" type="button">⚽ Football Competition Admin</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" data-bs-toggle="tab" data-bs-target="#admin-tab-cricket" type="button">🏏 NPL Cricket Admin</button>
+        </li>
+      </ul>
+
+      <div class="tab-content" id="admin-section-tabs-content">
+        <div class="tab-pane fade show active" id="admin-tab-users" role="tabpanel">
       <div class="card p-4 mb-4 border-dark border">
         <h4 class="fw-bold mb-3">👤 User Management</h4>
         <p class="text-muted small mb-3">Create login accounts. Each user logs in and predicts directly under their own account — no name/email typing or lookup codes needed on their end. The "admin" account already exists and cannot submit predictions.</p>
@@ -476,7 +490,9 @@
           </table>
         </div>
       </div>
+        </div>
 
+        <div class="tab-pane fade" id="admin-tab-football" role="tabpanel">
       <div class="card p-4 mb-4 border-success border">
         <h4 class="text-success fw-bold mb-3">➕ Add New Match</h4>
         <div class="row g-3">
@@ -571,6 +587,26 @@
         </div>
       </div>
 
+      <div class="card p-4 mb-4">
+        <h4 class="fw-bold mb-3">📜 Default Terms &amp; Conditions</h4>
+        <p class="text-muted small mb-2">Shown to users when a match doesn't have its own specific Terms &amp; Conditions set. To set terms for a specific match (e.g. Final, Third Place), use the "📜 Terms" button next to that match in the table below.</p>
+        <p class="text-muted small mb-2">Formatting: you can type real HTML tags like <code>&lt;b&gt;bold&lt;/b&gt;</code> or <code>&lt;u&gt;underline&lt;/u&gt;</code> directly, or use shorthand <code>**bold**</code> / <code>__underline__</code>.</p>
+        <textarea id="adm-terms-textarea" class="form-control mb-3" rows="8" placeholder="Loading current terms..."></textarea>
+        <button class="btn btn-primary fw-bold" onclick="saveTermsAdmin()">💾 Save Default Terms &amp; Conditions</button>
+      </div>
+
+      <div class="card p-4">
+        <h4 class="fw-bold text-danger mb-4">🛡️ Match Official Score Logging</h4>
+        <div class="table-responsive">
+          <table class="table align-middle border">
+            <thead class="table-dark"><tr><th>Match Details</th><th>Match Type</th><th>Enter Scores</th><th>Entries Status</th><th>Actions</th></tr></thead>
+            <tbody id="admin-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+        </div>
+
+        <div class="tab-pane fade" id="admin-tab-cricket" role="tabpanel">
       <div class="card p-4 mb-4 border-info border">
         <h4 class="fw-bold text-info mb-3">🏏 NPL Cricket Admin</h4>
 
@@ -694,22 +730,6 @@
         </div>
         <button class="btn btn-info fw-bold text-white" onclick="saveNplResultsAdmin()">💾 Save Actual Results</button>
       </div>
-
-      <div class="card p-4 mb-4">
-        <h4 class="fw-bold mb-3">📜 Default Terms &amp; Conditions</h4>
-        <p class="text-muted small mb-2">Shown to users when a match doesn't have its own specific Terms &amp; Conditions set. To set terms for a specific match (e.g. Final, Third Place), use the "📜 Terms" button next to that match in the table below.</p>
-        <p class="text-muted small mb-2">Formatting: you can type real HTML tags like <code>&lt;b&gt;bold&lt;/b&gt;</code> or <code>&lt;u&gt;underline&lt;/u&gt;</code> directly, or use shorthand <code>**bold**</code> / <code>__underline__</code>.</p>
-        <textarea id="adm-terms-textarea" class="form-control mb-3" rows="8" placeholder="Loading current terms..."></textarea>
-        <button class="btn btn-primary fw-bold" onclick="saveTermsAdmin()">💾 Save Default Terms &amp; Conditions</button>
-      </div>
-
-      <div class="card p-4">
-        <h4 class="fw-bold text-danger mb-4">🛡️ Match Official Score Logging</h4>
-        <div class="table-responsive">
-          <table class="table align-middle border">
-            <thead class="table-dark"><tr><th>Match Details</th><th>Match Type</th><th>Enter Scores</th><th>Entries Status</th><th>Actions</th></tr></thead>
-            <tbody id="admin-table-body"></tbody>
-          </table>
         </div>
       </div>
     </div>
