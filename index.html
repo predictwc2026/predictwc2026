@@ -108,8 +108,17 @@
   <div class="container my-4">
     
     <div id="page-landing" class="page-view">
-      <!-- Intentionally blank landing page for now, per requirements. Use the "Football Competition" or
-           "🏏 NPL Cricket" menus above to navigate into the app. -->
+      <div class="card p-4">
+        <h5 class="fw-bold mb-3">📊 NPL Cricket Leaderboard</h5>
+        <div id="npl-leaderboard-status-landing" class="text-muted small mb-1"></div>
+        <div id="npl-leaderboard-pool-landing" class="fw-bold text-primary mb-3"></div>
+        <div class="table-responsive">
+          <table class="table table-striped align-middle">
+            <thead><tr><th>#</th><th>Name</th><th>Standings Pick (1st → 8th)</th><th>Finalists / Champion</th><th>Points</th><th>Payout</th></tr></thead>
+            <tbody id="npl-leaderboard-body-landing"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <div id="page-home" class="page-view d-none">
@@ -434,10 +443,11 @@
       <button class="btn btn-secondary mb-3" onclick="showPage('cricket')">← Back to Predictions</button>
       <div class="card p-4">
         <h5 class="fw-bold mb-3">📊 NPL Leaderboard</h5>
-        <div id="npl-leaderboard-status" class="text-muted small mb-2"></div>
+        <div id="npl-leaderboard-status" class="text-muted small mb-1"></div>
+        <div id="npl-leaderboard-pool" class="fw-bold text-primary mb-3"></div>
         <div class="table-responsive">
           <table class="table table-striped align-middle">
-            <thead><tr><th>#</th><th>Name</th><th>Standings Pick (1st → 8th)</th><th>Finalists / Champion</th><th>Points</th></tr></thead>
+            <thead><tr><th>#</th><th>Name</th><th>Standings Pick (1st → 8th)</th><th>Finalists / Champion</th><th>Points</th><th>Payout</th></tr></thead>
             <tbody id="npl-leaderboard-body"></tbody>
           </table>
         </div>
@@ -692,6 +702,36 @@
             <input type="number" class="form-control" id="npl-adm-winner-pts">
           </div>
         </div>
+
+        <p class="text-muted small mb-1">Prize distribution — percentages of the total prize pool (total entry fees collected):</p>
+        <div class="row g-3 mb-2">
+          <div class="col-md-2 col-6">
+            <label class="form-label small fw-semibold">1st Prize %</label>
+            <input type="number" class="form-control npl-adm-prize-pct" oninput="updateNplPrizePctTotal()" id="npl-adm-prize-1st" step="0.01">
+          </div>
+          <div class="col-md-2 col-6">
+            <label class="form-label small fw-semibold">2nd Prize %</label>
+            <input type="number" class="form-control npl-adm-prize-pct" oninput="updateNplPrizePctTotal()" id="npl-adm-prize-2nd" step="0.01">
+          </div>
+          <div class="col-md-2 col-6">
+            <label class="form-label small fw-semibold">3rd Prize %</label>
+            <input type="number" class="form-control npl-adm-prize-pct" oninput="updateNplPrizePctTotal()" id="npl-adm-prize-3rd" step="0.01">
+          </div>
+          <div class="col-md-2 col-6">
+            <label class="form-label small fw-semibold">4th Prize %</label>
+            <input type="number" class="form-control npl-adm-prize-pct" oninput="updateNplPrizePctTotal()" id="npl-adm-prize-4th" step="0.01">
+          </div>
+          <div class="col-md-2 col-6">
+            <label class="form-label small fw-semibold">Lowest Points %</label>
+            <input type="number" class="form-control npl-adm-prize-pct" oninput="updateNplPrizePctTotal()" id="npl-adm-prize-lowest" step="0.01">
+          </div>
+          <div class="col-md-2 col-6">
+            <label class="form-label small fw-semibold">Management Fee %</label>
+            <input type="number" class="form-control npl-adm-prize-pct" oninput="updateNplPrizePctTotal()" id="npl-adm-prize-management" step="0.01">
+          </div>
+        </div>
+        <p class="small mb-3">Total: <span id="npl-adm-prize-pct-total" class="fw-bold">0%</span> <span class="text-muted">(must not exceed 100%)</span></p>
+
         <button class="btn btn-info fw-bold text-white mb-4" onclick="saveNplConfigAdmin()">💾 Save Season Config</button>
 
         <h6 class="fw-bold text-secondary mb-2">Actual Results</h6>
@@ -1160,6 +1200,7 @@
       document.querySelectorAll('.page-view').forEach(el => el.classList.add('d-none'));
       document.getElementById('page-' + pageId).classList.remove('d-none');
       if (pageId === 'home') loadMatchCenter(); // lazy-load Fixtures data whenever this page is shown, from any entry point
+      if (pageId === 'landing') loadCricketModule().then(renderNplLeaderboard); // refresh leaderboard preview
     }
 
     function setMatchFilter(status) {
@@ -4040,16 +4081,63 @@
       return ranks.join(' → ');
     }
 
-    function renderNplLeaderboard() {
-      const tbody = document.getElementById('npl-leaderboard-body');
-      const statusEl = document.getElementById('npl-leaderboard-status');
-      if (!nplConfig) { tbody.innerHTML = ''; return; }
+    // Computes the total prize pool (sum of all entry fees collected) and each
+    // prediction's payout, based on points rank (1st/2nd/3rd/4th by distinct point
+    // value) plus a "lowest points" prize. Ties within the same point value share
+    // that prize equally. A single prediction can qualify for more than one prize
+    // (e.g. "4th" and "lowest" can be the same group if there are few distinct
+    // point values) — in that case its payouts simply add together.
+    function computeNplPrizeBreakdown(scoredPredictions, config) {
+      const totalPool = nplPredictions.reduce((sum, p) => sum + (Number(p.fee) || 0), 0);
+      const prizeMap = {}; // prediction id -> NPR amount
+
+      if (!scoredPredictions.length || !config) return { totalPool, prizeMap };
+
+      const pointGroups = {};
+      scoredPredictions.forEach(p => {
+        const key = p.scoreInfo.total;
+        if (!pointGroups[key]) pointGroups[key] = [];
+        pointGroups[key].push(p);
+      });
+      const sortedPoints = Object.keys(pointGroups).map(Number).sort((a, b) => b - a);
+      const lowestPoint = sortedPoints[sortedPoints.length - 1];
+
+      const awardGroup = (points, pct) => {
+        if (points === undefined || !pct) return;
+        const group = pointGroups[points];
+        if (!group) return;
+        const amount = totalPool * (Number(pct) / 100);
+        const share = amount / group.length;
+        group.forEach(p => { prizeMap[p.id] = (prizeMap[p.id] || 0) + share; });
+      };
+
+      awardGroup(sortedPoints[0], config.prize_pct_1st);
+      awardGroup(sortedPoints[1], config.prize_pct_2nd);
+      awardGroup(sortedPoints[2], config.prize_pct_3rd);
+      awardGroup(sortedPoints[3], config.prize_pct_4th);
+      awardGroup(lowestPoint, config.prize_pct_lowest);
+
+      return { totalPool, prizeMap };
+    }
+
+    // Renders the NPL leaderboard (with prize payouts) into whichever set of
+    // DOM element ids is passed in, so the same logic can drive both the
+    // landing page preview and the standalone Leaderboard page.
+    function renderNplLeaderboardInto(ids) {
+      const tbody = document.getElementById(ids.tbody);
+      const statusEl = document.getElementById(ids.status);
+      const poolEl = document.getElementById(ids.pool);
+      if (!tbody) return;
+      if (!nplConfig) { tbody.innerHTML = ''; if (poolEl) poolEl.innerText = ''; return; }
 
       const resultsIn = nplActualResults && (nplActualResults.actual_rank1_team_id || nplActualResults.actual_winner_team_id);
-      statusEl.innerText = resultsIn ? 'Points update live as results are entered.' : 'Results not entered yet — points will appear once the season concludes (or partially, as results come in).';
+      if (statusEl) statusEl.innerText = resultsIn ? 'Points and payouts update live as results are entered.' : 'Results not entered yet — points and payouts will appear once results start coming in.';
 
       const scored = nplPredictions.map(p => ({ ...p, scoreInfo: computeNplScore(p, nplActualResults, nplConfig) }));
       scored.sort((a, b) => b.scoreInfo.total - a.scoreInfo.total);
+
+      const { totalPool, prizeMap } = computeNplPrizeBreakdown(scored, nplConfig);
+      if (poolEl) poolEl.innerText = `Total Prize Pool: NPR ${totalPool.toFixed(2)}`;
 
       tbody.innerHTML = scored.map((p, idx) => `
         <tr>
@@ -4058,8 +4146,15 @@
           <td class="small">${nplPickSummary(p)}</td>
           <td class="small">F: ${nplTeamName(p.pred_finalist1_team_id)} &amp; ${nplTeamName(p.pred_finalist2_team_id)} &nbsp;|&nbsp; 🏆 ${nplTeamName(p.pred_winner_team_id)}</td>
           <td class="fw-bold">${p.scoreInfo.total}</td>
+          <td class="fw-bold text-success">${prizeMap[p.id] ? 'NPR ' + prizeMap[p.id].toFixed(2) : '—'}</td>
         </tr>`).join('');
     }
+
+    function renderNplLeaderboard() {
+      renderNplLeaderboardInto({ tbody: 'npl-leaderboard-body', status: 'npl-leaderboard-status', pool: 'npl-leaderboard-pool' });
+      renderNplLeaderboardInto({ tbody: 'npl-leaderboard-body-landing', status: 'npl-leaderboard-status-landing', pool: 'npl-leaderboard-pool-landing' });
+    }
+
 
     function nplIsEditingLocked() {
       if (!nplConfig) return true;
@@ -4119,6 +4214,13 @@
         }
         document.getElementById('npl-adm-finalist-pts').value = nplConfig.finalist_points;
         document.getElementById('npl-adm-winner-pts').value = nplConfig.winner_points;
+        document.getElementById('npl-adm-prize-1st').value = nplConfig.prize_pct_1st;
+        document.getElementById('npl-adm-prize-2nd').value = nplConfig.prize_pct_2nd;
+        document.getElementById('npl-adm-prize-3rd').value = nplConfig.prize_pct_3rd;
+        document.getElementById('npl-adm-prize-4th').value = nplConfig.prize_pct_4th;
+        document.getElementById('npl-adm-prize-lowest').value = nplConfig.prize_pct_lowest;
+        document.getElementById('npl-adm-prize-management').value = nplConfig.prize_pct_management;
+        updateNplPrizePctTotal();
       }
 
       const resultDropdownIds = [];
@@ -4156,9 +4258,22 @@
       renderCricketPredictPage();
     }
 
+    function updateNplPrizePctTotal() {
+      const total = Array.from(document.querySelectorAll('.npl-adm-prize-pct'))
+        .reduce((sum, el) => sum + (Number(el.value) || 0), 0);
+      const totalEl = document.getElementById('npl-adm-prize-pct-total');
+      totalEl.innerText = `${total}%`;
+      totalEl.className = total > 100 ? 'fw-bold text-danger' : 'fw-bold text-success';
+      return total;
+    }
+
     async function saveNplConfigAdmin() {
       if (!isAdminAuthenticated || !adminPinCache) {
         alert("Your admin session has expired. Please log in again from the Admin Panel.");
+        return;
+      }
+      if (updateNplPrizePctTotal() > 100) {
+        alert("❌ Prize percentages add up to more than 100%. Please adjust before saving.");
         return;
       }
       const deadlineVal = document.getElementById('npl-adm-deadline').value;
@@ -4168,7 +4283,13 @@
         p_deadline: nptLocalInputToUtcIso(deadlineVal),
         p_finalist: Number(document.getElementById('npl-adm-finalist-pts').value),
         p_winner: Number(document.getElementById('npl-adm-winner-pts').value),
-        p_is_open: document.getElementById('npl-adm-is-open').checked
+        p_is_open: document.getElementById('npl-adm-is-open').checked,
+        p_prize_pct_1st: Number(document.getElementById('npl-adm-prize-1st').value),
+        p_prize_pct_2nd: Number(document.getElementById('npl-adm-prize-2nd').value),
+        p_prize_pct_3rd: Number(document.getElementById('npl-adm-prize-3rd').value),
+        p_prize_pct_4th: Number(document.getElementById('npl-adm-prize-4th').value),
+        p_prize_pct_lowest: Number(document.getElementById('npl-adm-prize-lowest').value),
+        p_prize_pct_management: Number(document.getElementById('npl-adm-prize-management').value)
       };
       for (let i = 1; i <= NPL_RANK_COUNT; i++) {
         rpcArgs[`p_rank${i}`] = Number(document.getElementById(`npl-adm-rank${i}-pts`).value);
