@@ -3845,10 +3845,10 @@
     let nplEditingPredictionId = null; // null = creating a new entry; set = editing this existing one
 
     function startEditNplPrediction(predictionId) {
-      const pred = nplPredictions.find(p => p.id === predictionId);
+      const pred = nplPredictions.find(p => String(p.id) === String(predictionId));
       if (!pred || !currentUserProfile || pred.username !== currentUserProfile.username) return;
 
-      nplEditingPredictionId = predictionId;
+      nplEditingPredictionId = pred.id; // use the actual stored id/type, not the raw onclick argument
 
       // Populate the standings dropdowns with the existing pick, refreshing exclusivity as we go
       for (let i = 1; i <= NPL_RANK_COUNT; i++) {
