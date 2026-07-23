@@ -114,7 +114,7 @@
         <div id="npl-leaderboard-pool-landing" class="fw-bold text-primary mb-3"></div>
         <div class="table-responsive">
           <table class="table table-striped align-middle">
-            <thead><tr><th>#</th><th>Name</th><th>Standings Pick (1st → 8th)</th><th>Finalists / Champion</th><th>Points</th><th>Payout</th></tr></thead>
+            <thead><tr><th>#</th><th>Name</th><th>Top 4 Pick</th><th>Finalists / Champion</th><th>Points</th><th>Fee Refund</th><th>Prize Payout</th><th>Total Received</th></tr></thead>
             <tbody id="npl-leaderboard-body-landing"></tbody>
           </table>
         </div>
@@ -365,7 +365,7 @@
       <div class="card p-4 mb-4" id="npl-predict-card">
         <h5 class="fw-bold mb-3">Submit a Prediction</h5>
 
-        <h6 class="fw-bold text-secondary mb-2">Predicted League Standings (1st – 8th)</h6>
+        <h6 class="fw-bold text-secondary mb-2">Predicted Top 4 Finish</h6>
         <div class="row g-3 mb-3">
           <div class="col-md-3 col-6">
             <label class="form-label small fw-semibold">🥇 1st</label>
@@ -382,22 +382,6 @@
           <div class="col-md-3 col-6">
             <label class="form-label small fw-semibold">4th</label>
             <select class="form-select" id="npl-rank4" onchange="onNplRankChanged()"></select>
-          </div>
-          <div class="col-md-3 col-6">
-            <label class="form-label small fw-semibold">5th</label>
-            <select class="form-select" id="npl-rank5" onchange="onNplRankChanged()"></select>
-          </div>
-          <div class="col-md-3 col-6">
-            <label class="form-label small fw-semibold">6th</label>
-            <select class="form-select" id="npl-rank6" onchange="onNplRankChanged()"></select>
-          </div>
-          <div class="col-md-3 col-6">
-            <label class="form-label small fw-semibold">7th</label>
-            <select class="form-select" id="npl-rank7" onchange="onNplRankChanged()"></select>
-          </div>
-          <div class="col-md-3 col-6">
-            <label class="form-label small fw-semibold">8th</label>
-            <select class="form-select" id="npl-rank8" onchange="onNplRankChanged()"></select>
           </div>
         </div>
         <p class="text-muted small">Already-picked teams disappear from the other dropdowns automatically.</p>
@@ -447,7 +431,7 @@
         <div id="npl-leaderboard-pool" class="fw-bold text-primary mb-3"></div>
         <div class="table-responsive">
           <table class="table table-striped align-middle">
-            <thead><tr><th>#</th><th>Name</th><th>Standings Pick (1st → 8th)</th><th>Finalists / Champion</th><th>Points</th><th>Payout</th></tr></thead>
+            <thead><tr><th>#</th><th>Name</th><th>Top 4 Pick</th><th>Finalists / Champion</th><th>Points</th><th>Fee Refund</th><th>Prize Payout</th><th>Total Received</th></tr></thead>
             <tbody id="npl-leaderboard-body"></tbody>
           </table>
         </div>
@@ -661,37 +645,21 @@
         </div>
         <p class="text-muted small mb-1">Points awarded per correctly ranked position (exact slot match):</p>
         <div class="row g-3 mb-3">
-          <div class="col-md-3 col-6 col-lg-1">
+          <div class="col-md-3 col-6 col-lg-2">
             <label class="form-label small fw-semibold">1st pts</label>
             <input type="number" class="form-control" id="npl-adm-rank1-pts">
           </div>
-          <div class="col-md-3 col-6 col-lg-1">
+          <div class="col-md-3 col-6 col-lg-2">
             <label class="form-label small fw-semibold">2nd pts</label>
             <input type="number" class="form-control" id="npl-adm-rank2-pts">
           </div>
-          <div class="col-md-3 col-6 col-lg-1">
+          <div class="col-md-3 col-6 col-lg-2">
             <label class="form-label small fw-semibold">3rd pts</label>
             <input type="number" class="form-control" id="npl-adm-rank3-pts">
           </div>
-          <div class="col-md-3 col-6 col-lg-1">
+          <div class="col-md-3 col-6 col-lg-2">
             <label class="form-label small fw-semibold">4th pts</label>
             <input type="number" class="form-control" id="npl-adm-rank4-pts">
-          </div>
-          <div class="col-md-3 col-6 col-lg-1">
-            <label class="form-label small fw-semibold">5th pts</label>
-            <input type="number" class="form-control" id="npl-adm-rank5-pts">
-          </div>
-          <div class="col-md-3 col-6 col-lg-1">
-            <label class="form-label small fw-semibold">6th pts</label>
-            <input type="number" class="form-control" id="npl-adm-rank6-pts">
-          </div>
-          <div class="col-md-3 col-6 col-lg-1">
-            <label class="form-label small fw-semibold">7th pts</label>
-            <input type="number" class="form-control" id="npl-adm-rank7-pts">
-          </div>
-          <div class="col-md-3 col-6 col-lg-1">
-            <label class="form-label small fw-semibold">8th pts</label>
-            <input type="number" class="form-control" id="npl-adm-rank8-pts">
           </div>
           <div class="col-md-3 col-6 col-lg-2">
             <label class="form-label small fw-semibold">Finalist pts</label>
@@ -752,22 +720,6 @@
           <div class="col-md-3 col-6">
             <label class="form-label small fw-semibold">Actual 4th</label>
             <select class="form-select" id="npl-adm-actual-rank4"></select>
-          </div>
-          <div class="col-md-3 col-6">
-            <label class="form-label small fw-semibold">Actual 5th</label>
-            <select class="form-select" id="npl-adm-actual-rank5"></select>
-          </div>
-          <div class="col-md-3 col-6">
-            <label class="form-label small fw-semibold">Actual 6th</label>
-            <select class="form-select" id="npl-adm-actual-rank6"></select>
-          </div>
-          <div class="col-md-3 col-6">
-            <label class="form-label small fw-semibold">Actual 7th</label>
-            <select class="form-select" id="npl-adm-actual-rank7"></select>
-          </div>
-          <div class="col-md-3 col-6">
-            <label class="form-label small fw-semibold">Actual 8th</label>
-            <select class="form-select" id="npl-adm-actual-rank8"></select>
           </div>
         </div>
         <div class="row g-3 mb-3">
@@ -3692,10 +3644,11 @@
     // ============================================================
     // 🏏 NPL Cricket Module (fully separate from football matches/predictions)
     // ============================================================
-    const NPL_RANK_COUNT = 8;
+    const NPL_TEAM_COUNT = 8;   // total number of franchise teams (for the team editor / dropdowns)
+    const NPL_RANK_COUNT = 4;   // players predict Top 4 only (reverted from full 8-team ranking)
     let nplTeams = [];        // [{id, name}]
-    let nplConfig = null;     // {id, season_label, fee, deadline, rank1_points...rank8_points, finalist_points, winner_points, is_open}
-    let nplActualResults = null; // {actual_rank1_team_id...actual_rank8_team_id, actual_finalist1_team_id, actual_finalist2_team_id, actual_winner_team_id}
+    let nplConfig = null;     // {id, season_label, fee, deadline, rank1_points..rank4_points, finalist_points, winner_points, is_open}
+    let nplActualResults = null; // {actual_rank1_team_id..actual_rank4_team_id, actual_finalist1_team_id, actual_finalist2_team_id, actual_winner_team_id}
     let nplPredictions = [];  // all rows from npl_predictions
 
     async function loadCricketModule() {
@@ -3988,7 +3941,6 @@
           p_username: nplMyProfile.username,
           p_prediction_id: nplEditingPredictionId,
           p_rank1: Number(ranks[0]), p_rank2: Number(ranks[1]), p_rank3: Number(ranks[2]), p_rank4: Number(ranks[3]),
-          p_rank5: Number(ranks[4]), p_rank6: Number(ranks[5]), p_rank7: Number(ranks[6]), p_rank8: Number(ranks[7]),
           p_finalist1: Number(finalist1), p_finalist2: Number(finalist2), p_winner: Number(winner)
         });
         opError = error;
@@ -4081,17 +4033,42 @@
       return ranks.join(' → ');
     }
 
-    // Computes the total prize pool (sum of all entry fees collected) and each
-    // prediction's payout, based on points rank (1st/2nd/3rd/4th by distinct point
-    // value) plus a "lowest points" prize. Ties within the same point value share
-    // that prize equally. A single prediction can qualify for more than one prize
-    // (e.g. "4th" and "lowest" can be the same group if there are few distinct
-    // point values) — in that case its payouts simply add together.
-    function computeNplPrizeBreakdown(scoredPredictions, config) {
-      const totalPool = nplPredictions.reduce((sum, p) => sum + (Number(p.fee) || 0), 0);
-      const prizeMap = {}; // prediction id -> NPR amount
+    // Refund mechanic: anyone who predicted the EXACT ordered Top 4 finish gets
+    // their own individual entry fee refunded in full (each qualifying person gets
+    // their own fee back — not a shared/split amount). Requires all 4 actual
+    // positions to be known; otherwise no refunds are determined yet.
+    function computeNplExactTop4Refunds() {
+      const refundMap = {}; // prediction id -> NPR amount
+      let totalRefunded = 0;
+      const ar = nplActualResults;
+      if (!ar || !ar.actual_rank1_team_id || !ar.actual_rank2_team_id || !ar.actual_rank3_team_id || !ar.actual_rank4_team_id) {
+        return { refundMap, totalRefunded };
+      }
+      nplPredictions.forEach(p => {
+        const exactMatch =
+          p.rank1_team_id === ar.actual_rank1_team_id &&
+          p.rank2_team_id === ar.actual_rank2_team_id &&
+          p.rank3_team_id === ar.actual_rank3_team_id &&
+          p.rank4_team_id === ar.actual_rank4_team_id;
+        if (exactMatch) {
+          const fee = Number(p.fee) || 0;
+          refundMap[p.id] = fee;
+          totalRefunded += fee;
+        }
+      });
+      return { refundMap, totalRefunded };
+    }
 
-      if (!scoredPredictions.length || !config) return { totalPool, prizeMap };
+    // Computes each prediction's prize payout, based on points rank (1st/2nd/3rd/4th
+    // by distinct point value) plus a "lowest points" prize. Ties within the same
+    // point value share that prize equally. A single prediction can qualify for more
+    // than one prize (e.g. "4th" and "lowest" can be the same group if there are few
+    // distinct point values) — in that case its payouts simply add together.
+    // poolForPrizes = total fees collected MINUS any exact-Top-4 refunds already paid
+    // out — i.e. "the remaining amount" per the payout rules.
+    function computeNplPrizeBreakdown(scoredPredictions, config, poolForPrizes) {
+      const prizeMap = {}; // prediction id -> NPR amount
+      if (!scoredPredictions.length || !config) return { prizeMap };
 
       const pointGroups = {};
       scoredPredictions.forEach(p => {
@@ -4106,7 +4083,7 @@
         if (points === undefined || !pct) return;
         const group = pointGroups[points];
         if (!group) return;
-        const amount = totalPool * (Number(pct) / 100);
+        const amount = poolForPrizes * (Number(pct) / 100);
         const share = amount / group.length;
         group.forEach(p => { prizeMap[p.id] = (prizeMap[p.id] || 0) + share; });
       };
@@ -4117,11 +4094,11 @@
       awardGroup(sortedPoints[3], config.prize_pct_4th);
       awardGroup(lowestPoint, config.prize_pct_lowest);
 
-      return { totalPool, prizeMap };
+      return { prizeMap };
     }
 
-    // Renders the NPL leaderboard (with prize payouts) into whichever set of
-    // DOM element ids is passed in, so the same logic can drive both the
+    // Renders the NPL leaderboard (with refunds + prize payouts) into whichever set
+    // of DOM element ids is passed in, so the same logic can drive both the
     // landing page preview and the standalone Leaderboard page.
     function renderNplLeaderboardInto(ids) {
       const tbody = document.getElementById(ids.tbody);
@@ -4131,23 +4108,45 @@
       if (!nplConfig) { tbody.innerHTML = ''; if (poolEl) poolEl.innerText = ''; return; }
 
       const resultsIn = nplActualResults && (nplActualResults.actual_rank1_team_id || nplActualResults.actual_winner_team_id);
-      if (statusEl) statusEl.innerText = resultsIn ? 'Points and payouts update live as results are entered.' : 'Results not entered yet — points and payouts will appear once results start coming in.';
+      if (statusEl) statusEl.innerText = resultsIn ? 'Points and payouts update live as results are entered.' : 'Results not entered yet — points and payouts stay at 0 until the admin saves at least some actual results.';
 
-      const scored = nplPredictions.map(p => ({ ...p, scoreInfo: computeNplScore(p, nplActualResults, nplConfig) }));
+      // Until the admin has saved actual results, everyone is (correctly) tied at 0 —
+      // but leaving the prize logic to run on that tie would treat it as a real "1st"
+      // and "lowest" finish and start paying out money for nothing. Force 0/blank instead.
+      const scored = nplPredictions.map(p => ({
+        ...p,
+        scoreInfo: resultsIn ? computeNplScore(p, nplActualResults, nplConfig) : { total: 0, breakdown: [] }
+      }));
       scored.sort((a, b) => b.scoreInfo.total - a.scoreInfo.total);
 
-      const { totalPool, prizeMap } = computeNplPrizeBreakdown(scored, nplConfig);
-      if (poolEl) poolEl.innerText = `Total Prize Pool: NPR ${totalPool.toFixed(2)}`;
+      const totalFees = nplPredictions.reduce((sum, p) => sum + (Number(p.fee) || 0), 0);
+      const { refundMap, totalRefunded } = resultsIn ? computeNplExactTop4Refunds() : { refundMap: {}, totalRefunded: 0 };
+      // "Remaining amount" after refunds — if nobody hit the exact Top 4, totalRefunded
+      // is 0 and this is just the full pool, matching the no-refund case exactly.
+      const poolForPrizes = totalFees - totalRefunded;
+      const { prizeMap } = resultsIn ? computeNplPrizeBreakdown(scored, nplConfig, poolForPrizes) : { prizeMap: {} };
 
-      tbody.innerHTML = scored.map((p, idx) => `
+      if (poolEl) {
+        poolEl.innerHTML = `Total Fees Collected: NPR ${totalFees.toFixed(2)}` +
+          (totalRefunded > 0 ? ` &nbsp;|&nbsp; Refunded (exact Top 4): NPR ${totalRefunded.toFixed(2)} &nbsp;|&nbsp; Remaining for Prizes: NPR ${poolForPrizes.toFixed(2)}` : '');
+      }
+
+      tbody.innerHTML = scored.map((p, idx) => {
+        const refund = refundMap[p.id] || 0;
+        const prize = prizeMap[p.id] || 0;
+        const total = refund + prize;
+        return `
         <tr>
           <td class="fw-bold">${idx + 1}</td>
           <td>${p.full_name}</td>
           <td class="small">${nplPickSummary(p)}</td>
           <td class="small">F: ${nplTeamName(p.pred_finalist1_team_id)} &amp; ${nplTeamName(p.pred_finalist2_team_id)} &nbsp;|&nbsp; 🏆 ${nplTeamName(p.pred_winner_team_id)}</td>
           <td class="fw-bold">${p.scoreInfo.total}</td>
-          <td class="fw-bold text-success">${prizeMap[p.id] ? 'NPR ' + prizeMap[p.id].toFixed(2) : '—'}</td>
-        </tr>`).join('');
+          <td class="text-info">${refund ? 'NPR ' + refund.toFixed(2) : '—'}</td>
+          <td class="text-success">${prize ? 'NPR ' + prize.toFixed(2) : '—'}</td>
+          <td class="fw-bold">${total ? 'NPR ' + total.toFixed(2) : '—'}</td>
+        </tr>`;
+      }).join('');
     }
 
     function renderNplLeaderboard() {
@@ -4197,7 +4196,7 @@
 
       // Team name editor: one input per existing team, plus 1 blank slot if fewer than 8 exist yet
       const teamInputsContainer = document.getElementById('npl-adm-team-name-inputs');
-      const slotCount = Math.max(nplTeams.length, NPL_RANK_COUNT);
+      const slotCount = Math.max(nplTeams.length, NPL_TEAM_COUNT);
       let teamInputsHtml = '';
       for (let i = 0; i < slotCount; i++) {
         const existingName = nplTeams[i] ? nplTeams[i].name : '';
@@ -4244,8 +4243,8 @@
         return;
       }
       const names = Array.from(document.querySelectorAll('.npl-adm-team-name-input')).map(el => el.value.trim()).filter(Boolean);
-      if (names.length < NPL_RANK_COUNT) {
-        alert(`Please fill in all ${NPL_RANK_COUNT} team names before saving.`);
+      if (names.length < NPL_TEAM_COUNT) {
+        alert(`Please fill in all ${NPL_TEAM_COUNT} team names before saving.`);
         return;
       }
       const { data, error } = await _supabase.rpc('set_cricket_teams_admin', { p_admin_pin: adminPinCache, p_team_names: names });
